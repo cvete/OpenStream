@@ -1,0 +1,151 @@
+/**
+ * Streaming Server API - Main Entry Point
+ */
+
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const compression = require('compression');
+const morgan = require('morgan');
+const rateLimit = require('express-rate-limit');
+
+const config = require('./config');
+const logger = require('./services/logger');
+const { initDatabase } = require('./services/database');
+const { initRedis } = require('./services/redis');
+
+// Import routes
+const authRoutes = require('./routes/auth');
+const streamsRoutes = require('./routes/streams');
+const vodRoutes = require('./routes/vod');
+const statsRoutes = require('./routes/stats');
+const hooksRoutes = require('./routes/hooks');
+const internalRoutes = require('./routes/internal');
+const embedRoutes = require('./routes/embed');
+const domainsRoutes = require('./routes/domains');
+
+const app = express();
+
+// Trust proxy (for rate limiting behind NGINX)
+app.set('trust proxy', 1);
+
+// Security middleware
+app.use(helmet({
+    contentSecurityPolicy: false, // Disabled for embed player
+    crossOriginEmbedderPolicy: false
+}));
+
+// CORS configuration
+app.use(cors({
+    origin: (origin, callback) => {
+        // Allow requests with no origin (mobile apps, curl, etc.)
+        if (!origin) return callback(null, true);
+
+        // In production, validate against allowed domains
+        // For now, allow all origins
+        callback(null, true);
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
+// Compression
+app.use(compression());
+
+// Request logging
+app.use(morgan('combined', {
+    stream: { write: message => logger.info(message.trim()) }
+}));
+
+// Body parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Global rate limiting
+const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 1000, // Limit each IP to 1000 requests per windowMs
+    message: { error: 'Too many requests, please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+app.use(globalLimiter);
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+    });
+});
+
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/streams', streamsRoutes);
+app.use('/api/vod', vodRoutes);
+app.use('/api/stats', statsRoutes);
+app.use('/api/hooks', hooksRoutes);
+app.use('/api/internal', internalRoutes);
+app.use('/api/domains', domainsRoutes);
+app.use('/embed', embedRoutes);
+
+// 404 handler
+app.use((req, res) => {
+    res.status(404).json({
+        error: 'Not Found',
+        message: `Route ${req.method} ${req.path} not found`
+    });
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+    logger.error('Unhandled error:', err);
+
+    res.status(err.status || 500).json({
+        error: err.message || 'Internal Server Error',
+        ...(config.isDevelopment && { stack: err.stack })
+    });
+});
+
+// Initialize services and start server
+async function startServer() {
+    try {
+        // Initialize database
+        await initDatabase();
+        logger.info('Database connected');
+
+        // Initialize Redis
+        await initRedis();
+        logger.info('Redis connected');
+
+        // Start HTTP server
+        const PORT = config.port || 3000;
+        app.listen(PORT, '0.0.0.0', () => {
+            logger.info(`Streaming API server running on port ${PORT}`);
+            logger.info(`Environment: ${config.nodeEnv}`);
+        });
+
+    } catch (error) {
+        logger.error('Failed to start server:', error);
+        process.exit(1);
+    }
+}
+
+// Handle graceful shutdown
+process.on('SIGTERM', async () => {
+    logger.info('SIGTERM received, shutting down gracefully');
+    process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+    logger.info('SIGINT received, shutting down gracefully');
+    process.exit(0);
+});
+
+// Start the server
+startServer();
+
+module.exports = app;

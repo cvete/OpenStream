@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming Server Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent: #3b82f6;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 250px;
+            height: 100vh;
+            background: var(--bg-secondary);
+            padding: 20px;
+            border-right: 1px solid var(--bg-tertiary);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 4px;
+            color: var(--text-secondary);
+        }
+
+        .nav-item:hover, .nav-item.active {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--accent);
+            color: white;
+        }
+
+        /* Main Content */
+        .main {
+            margin-left: 250px;
+            padding: 30px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 1.75rem;
+        }
+
+        /* Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid var(--bg-tertiary);
+        }
+
+        .stat-card .label {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin-bottom: 8px;
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .stat-card .value.live { color: var(--success); }
+        .stat-card .value.viewers { color: var(--accent); }
+        .stat-card .value.vod { color: var(--warning); }
+
+        /* Tables */
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--bg-tertiary);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--bg-tertiary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-header h2 {
+            font-size: 1.125rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 14px 20px;
+            text-align: left;
+            border-bottom: 1px solid var(--bg-tertiary);
+        }
+
+        th {
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover {
+            background: var(--bg-tertiary);
+        }
+
+        /* Status badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .badge.live {
+            background: rgba(34, 197, 94, 0.2);
+            color: var(--success);
+        }
+
+        .badge.live::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .badge.offline {
+            background: rgba(148, 163, 184, 0.2);
+            color: var(--text-secondary);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            font-size: 0.875rem;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        /* Forms */
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--bg-tertiary);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 0.875rem;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 24px;
+            width: 100%;
+            max-width: 500px;
+            border: 1px solid var(--bg-tertiary);
+        }
+
+        .modal h3 {
+            margin-bottom: 20px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        /* Code block */
+        .code-block {
+            background: var(--bg-primary);
+            padding: 12px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.875rem;
+            word-break: break-all;
+            margin-top: 8px;
+        }
+
+        /* Login form */
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-box {
+            background: var(--bg-secondary);
+            padding: 40px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 400px;
+            border: 1px solid var(--bg-tertiary);
+        }
+
+        .login-box h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .error-message {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <!-- Login View -->
+    <div id="login-view" class="login-container">
+        <div class="login-box">
+            <h1>🎬 Streaming Server</h1>
+            <div id="login-error" class="error-message"></div>
+            <form id="login-form">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="username" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="password" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">
+                    Login
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Dashboard View -->
+    <div id="dashboard-view" class="hidden">
+        <div class="sidebar">
+            <div class="logo">🎬 Streaming</div>
+            <nav>
+                <div class="nav-item active" data-page="dashboard">📊 Dashboard</div>
+                <div class="nav-item" data-page="streams">📡 Streams</div>
+                <div class="nav-item" data-page="vod">🎬 Recordings</div>
+                <div class="nav-item" data-page="security">🔒 Security</div>
+                <div class="nav-item" data-page="settings">⚙️ Settings</div>
+                <div class="nav-item" id="logout-btn">🚪 Logout</div>
+            </nav>
+        </div>
+
+        <div class="main">
+            <!-- Dashboard Page -->
+            <div id="page-dashboard" class="page">
+                <div class="header">
+                    <h1>Dashboard</h1>
+                    <button class="btn btn-primary" onclick="openCreateStreamModal()">+ New Stream</button>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="label">Live Streams</div>
+                        <div class="value live" id="stat-live">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Current Viewers</div>
+                        <div class="value viewers" id="stat-viewers">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Total Streams</div>
+                        <div class="value" id="stat-total">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Recordings</div>
+                        <div class="value vod" id="stat-vod">0</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Active Streams</h2>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Status</th>
+                                <th>Viewers</th>
+                                <th>Started</th>
+                            </tr>
+                        </thead>
+                        <tbody id="live-streams-table">
+                            <tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">No active streams</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Streams Page -->
+            <div id="page-streams" class="page hidden">
+                <div class="header">
+                    <h1>Streams</h1>
+                    <button class="btn btn-primary" onclick="openCreateStreamModal()">+ New Stream</button>
+                </div>
+
+                <div class="card">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Stream Key</th>
+                                <th>Status</th>
+                                <th>Views</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="all-streams-table">
+                            <tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- VOD Page -->
+            <div id="page-vod" class="page hidden">
+                <div class="header">
+                    <h1>Recordings</h1>
+                </div>
+                <div class="card">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Duration</th>
+                                <th>Size</th>
+                                <th>Recorded</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vod-table">
+                            <tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Security Page -->
+            <div id="page-security" class="page hidden">
+                <div class="header">
+                    <h1>Security Settings</h1>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Global Allowed Domains</h2>
+                        <button class="btn btn-primary" onclick="openAddDomainModal()">+ Add Domain</button>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Domain</th>
+                                <th>Description</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="domains-table">
+                            <tr><td colspan="3" style="text-align: center; color: var(--text-secondary);">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Settings Page -->
+            <div id="page-settings" class="page hidden">
+                <div class="header">
+                    <h1>Settings</h1>
+                </div>
+                <div class="card" style="padding: 24px;">
+                    <h3 style="margin-bottom: 20px;">Server Information</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 10px;">
+                        <strong>RTMP URL:</strong>
+                        <span class="code-block">rtmp://your-server:1935/live/{stream-key}</span>
+                    </p>
+                    <p style="color: var(--text-secondary); margin-bottom: 10px;">
+                        <strong>HLS Playback:</strong>
+                        <span class="code-block">https://your-server/live/{stream-key}/index.m3u8?token={token}&expires={timestamp}</span>
+                    </p>
+                    <p style="color: var(--text-secondary);">
+                        <strong>Embed Player:</strong>
+                        <span class="code-block">&lt;iframe src="https://your-server/embed/{stream-key}" width="640" height="360"&gt;&lt;/iframe&gt;</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Stream Modal -->
+    <div class="modal-overlay" id="create-stream-modal">
+        <div class="modal">
+            <h3>Create New Stream</h3>
+            <form id="create-stream-form">
+                <div class="form-group">
+                    <label>Stream Name</label>
+                    <input type="text" id="stream-name" required placeholder="My Live Stream">
+                </div>
+                <div class="form-group">
+                    <label>Description (optional)</label>
+                    <input type="text" id="stream-description" placeholder="Stream description...">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('create-stream-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Stream</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Stream Created Modal -->
+    <div class="modal-overlay" id="stream-created-modal">
+        <div class="modal">
+            <h3>Stream Created!</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">Use this RTMP URL in OBS or your encoder:</p>
+            <div class="code-block" id="created-rtmp-url"></div>
+            <p style="color: var(--text-secondary); margin: 16px 0;">Stream Key:</p>
+            <div class="code-block" id="created-stream-key"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-primary" onclick="closeModal('stream-created-modal')">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Domain Modal -->
+    <div class="modal-overlay" id="add-domain-modal">
+        <div class="modal">
+            <h3>Add Allowed Domain</h3>
+            <form id="add-domain-form">
+                <div class="form-group">
+                    <label>Domain</label>
+                    <input type="text" id="domain-name" required placeholder="example.com">
+                </div>
+                <div class="form-group">
+                    <label>Description (optional)</label>
+                    <input type="text" id="domain-description" placeholder="Production website">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('add-domain-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Domain</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let token = localStorage.getItem('token');
+        let currentPage = 'dashboard';
+
+        // API helper
+        async function api(endpoint, options = {}) {
+            const headers = {
+                'Content-Type': 'application/json',
+                ...options.headers
+            };
+
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            const response = await fetch(`/api${endpoint}`, {
+                ...options,
+                headers
+            });
+
+            if (response.status === 401) {
+                logout();
+                throw new Error('Unauthorized');
+            }
+
+            return response.json();
+        }
+
+        // Auth
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const data = await api('/auth/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ username, password })
+                });
+
+                token = data.token;
+                localStorage.setItem('token', token);
+                showDashboard();
+            } catch (error) {
+                document.getElementById('login-error').textContent = 'Invalid credentials';
+                document.getElementById('login-error').style.display = 'block';
+            }
+        });
+
+        function logout() {
+            token = null;
+            localStorage.removeItem('token');
+            document.getElementById('login-view').classList.remove('hidden');
+            document.getElementById('dashboard-view').classList.add('hidden');
+        }
+
+        document.getElementById('logout-btn').addEventListener('click', logout);
+
+        function showDashboard() {
+            document.getElementById('login-view').classList.add('hidden');
+            document.getElementById('dashboard-view').classList.remove('hidden');
+            loadStats();
+            loadStreams();
+        }
+
+        // Navigation
+        document.querySelectorAll('.nav-item[data-page]').forEach(item => {
+            item.addEventListener('click', () => {
+                const page = item.dataset.page;
+                showPage(page);
+            });
+        });
+
+        function showPage(page) {
+            document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+            document.getElementById(`page-${page}`).classList.remove('hidden');
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.querySelector(`.nav-item[data-page="${page}"]`).classList.add('active');
+            currentPage = page;
+
+            if (page === 'streams') loadAllStreams();
+            if (page === 'vod') loadVOD();
+            if (page === 'security') loadDomains();
+        }
+
+        // Load data
+        async function loadStats() {
+            try {
+                const data = await api('/stats/server');
+                document.getElementById('stat-live').textContent = data.live_streams || 0;
+                document.getElementById('stat-viewers').textContent = data.current_viewers || 0;
+                document.getElementById('stat-total').textContent = data.total_streams || 0;
+                document.getElementById('stat-vod').textContent = data.total_recordings || 0;
+            } catch (error) {
+                console.error('Failed to load stats:', error);
+            }
+        }
+
+        async function loadStreams() {
+            try {
+                const data = await api('/streams/status/live');
+                const tbody = document.getElementById('live-streams-table');
+
+                if (data.streams && data.streams.length > 0) {
+                    tbody.innerHTML = data.streams.map(stream => `
+                        <tr>
+                            <td>${escapeHtml(stream.name)}</td>
+                            <td><span class="badge live">LIVE</span></td>
+                            <td>${stream.current_viewers || 0}</td>
+                            <td>${formatDate(stream.started_at)}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">No active streams</td></tr>';
+                }
+            } catch (error) {
+                console.error('Failed to load streams:', error);
+            }
+        }
+
+        async function loadAllStreams() {
+            try {
+                const data = await api('/streams');
+                const tbody = document.getElementById('all-streams-table');
+
+                if (data.streams && data.streams.length > 0) {
+                    tbody.innerHTML = data.streams.map(stream => `
+                        <tr>
+                            <td>${escapeHtml(stream.name)}</td>
+                            <td><code>${stream.stream_key}</code></td>
+                            <td><span class="badge ${stream.status}">${stream.status.toUpperCase()}</span></td>
+                            <td>${stream.total_views || 0}</td>
+                            <td>
+                                <button class="btn btn-secondary" onclick="copyStreamKey('${stream.stream_key}')">Copy Key</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">No streams yet</td></tr>';
+                }
+            } catch (error) {
+                console.error('Failed to load all streams:', error);
+            }
+        }
+
+        async function loadVOD() {
+            try {
+                const data = await api('/vod');
+                const tbody = document.getElementById('vod-table');
+
+                if (data.recordings && data.recordings.length > 0) {
+                    tbody.innerHTML = data.recordings.map(vod => `
+                        <tr>
+                            <td>${escapeHtml(vod.stream_name || 'Unknown')}</td>
+                            <td>${formatDuration(vod.duration)}</td>
+                            <td>${formatBytes(vod.file_size)}</td>
+                            <td>${formatDate(vod.recorded_at)}</td>
+                            <td>
+                                <button class="btn btn-secondary" onclick="playVOD('${vod.id}')">Play</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">No recordings yet</td></tr>';
+                }
+            } catch (error) {
+                console.error('Failed to load VOD:', error);
+            }
+        }
+
+        async function loadDomains() {
+            try {
+                const data = await api('/domains/global');
+                const tbody = document.getElementById('domains-table');
+
+                if (data.domains && data.domains.length > 0) {
+                    tbody.innerHTML = data.domains.map(domain => `
+                        <tr>
+                            <td>${escapeHtml(domain.domain)}</td>
+                            <td>${escapeHtml(domain.description || '-')}</td>
+                            <td>
+                                <button class="btn btn-secondary" onclick="removeDomain('${domain.domain}')">Remove</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-secondary);">No domains configured</td></tr>';
+                }
+            } catch (error) {
+                console.error('Failed to load domains:', error);
+            }
+        }
+
+        // Create stream
+        document.getElementById('create-stream-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('stream-name').value;
+            const description = document.getElementById('stream-description').value;
+
+            try {
+                const data = await api('/streams', {
+                    method: 'POST',
+                    body: JSON.stringify({ name, description })
+                });
+
+                closeModal('create-stream-modal');
+                document.getElementById('created-rtmp-url').textContent = `rtmp://your-server:1935/live/${data.stream.stream_key}`;
+                document.getElementById('created-stream-key').textContent = data.stream.stream_key;
+                openModal('stream-created-modal');
+
+                document.getElementById('stream-name').value = '';
+                document.getElementById('stream-description').value = '';
+
+                loadStats();
+                if (currentPage === 'streams') loadAllStreams();
+            } catch (error) {
+                alert('Failed to create stream');
+            }
+        });
+
+        // Add domain
+        document.getElementById('add-domain-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const domain = document.getElementById('domain-name').value;
+            const description = document.getElementById('domain-description').value;
+
+            try {
+                await api('/domains/global', {
+                    method: 'POST',
+                    body: JSON.stringify({ domain, description })
+                });
+
+                closeModal('add-domain-modal');
+                document.getElementById('domain-name').value = '';
+                document.getElementById('domain-description').value = '';
+                loadDomains();
+            } catch (error) {
+                alert('Failed to add domain');
+            }
+        });
+
+        async function removeDomain(domain) {
+            if (!confirm(`Remove domain "${domain}"?`)) return;
+
+            try {
+                await api(`/domains/global/${encodeURIComponent(domain)}`, {
+                    method: 'DELETE'
+                });
+                loadDomains();
+            } catch (error) {
+                alert('Failed to remove domain');
+            }
+        }
+
+        // Modals
+        function openModal(id) {
+            document.getElementById(id).classList.add('active');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        function openCreateStreamModal() {
+            openModal('create-stream-modal');
+        }
+
+        function openAddDomainModal() {
+            openModal('add-domain-modal');
+        }
+
+        // Utils
+        function copyStreamKey(key) {
+            navigator.clipboard.writeText(key);
+            alert('Stream key copied!');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            return new Date(dateStr).toLocaleString();
+        }
+
+        function formatDuration(seconds) {
+            if (!seconds) return '-';
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = seconds % 60;
+            return h > 0 ? `${h}h ${m}m` : `${m}m ${s}s`;
+        }
+
+        function formatBytes(bytes) {
+            if (!bytes) return '-';
+            const units = ['B', 'KB', 'MB', 'GB'];
+            let i = 0;
+            while (bytes >= 1024 && i < units.length - 1) {
+                bytes /= 1024;
+                i++;
+            }
+            return `${bytes.toFixed(1)} ${units[i]}`;
+        }
+
+        // Initialize
+        if (token) {
+            showDashboard();
+        }
+
+        // Refresh stats periodically
+        setInterval(() => {
+            if (token && currentPage === 'dashboard') {
+                loadStats();
+                loadStreams();
+            }
+        }, 10000);
+    </script>
+</body>
+</html>

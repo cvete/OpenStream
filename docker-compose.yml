@@ -1,0 +1,108 @@
+version: '3.8'
+
+services:
+  # SRS - RTMP/HLS Media Server
+  srs:
+    image: ossrs/srs:5
+    container_name: streaming-srs
+    restart: unless-stopped
+    ports:
+      - "1935:1935"   # RTMP
+      - "1985:1985"   # API
+      - "8080:8080"   # HTTP Server (internal HLS)
+    volumes:
+      - ./srs/srs.conf:/usr/local/srs/conf/srs.conf
+      - ./media:/media
+    networks:
+      - streaming-network
+    depends_on:
+      - api
+
+  # NGINX - HLS Delivery & Reverse Proxy
+  nginx:
+    image: nginx:1.24-alpine
+    container_name: streaming-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./media:/media:ro
+      - ./dashboard/dist:/var/www/dashboard:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    networks:
+      - streaming-network
+    depends_on:
+      - api
+      - srs
+
+  # Node.js API Server
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: streaming-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://streaming:streaming_password@postgres:5432/streaming_db
+      - REDIS_URL=redis://redis:6379
+      - TOKEN_SECRET=${TOKEN_SECRET:-your-super-secret-token-key-change-in-production}
+      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-change-in-production}
+      - SRS_API_URL=http://srs:1985
+    volumes:
+      - ./media:/media
+    networks:
+      - streaming-network
+    depends_on:
+      - postgres
+      - redis
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: streaming-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=streaming
+      - POSTGRES_PASSWORD=streaming_password
+      - POSTGRES_DB=streaming_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - streaming-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U streaming -d streaming_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: streaming-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - streaming-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  streaming-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
