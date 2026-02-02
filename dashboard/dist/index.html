@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Streaming Server Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -222,6 +223,33 @@
             color: var(--text-primary);
         }
 
+        .btn-secondary:hover {
+            background: #475569;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #16a34a;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
         /* Forms */
         .form-group {
             margin-bottom: 16px;
@@ -330,6 +358,244 @@
         }
 
         .hidden { display: none !important; }
+
+        /* Chart Containers */
+        .chart-container {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid var(--bg-tertiary);
+            margin-bottom: 20px;
+        }
+
+        .chart-container h3 {
+            margin-bottom: 16px;
+            font-size: 1.125rem;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 300px;
+        }
+
+        /* Period Selector */
+        .period-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .period-btn {
+            padding: 6px 12px;
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--bg-tertiary);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .period-btn:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .period-btn.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        /* Analytics Grid */
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        /* Action buttons */
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-sm {
+            padding: 4px 10px;
+            font-size: 0.75rem;
+        }
+
+        /* Loading spinner */
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state h3 {
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 48px;
+            height: 26px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--bg-tertiary);
+            transition: 0.3s;
+            border-radius: 26px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: var(--accent);
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(22px);
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: var(--bg-secondary);
+            border: 1px solid var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 16px 20px;
+            min-width: 300px;
+            max-width: 400px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            pointer-events: auto;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast.removing {
+            animation: slideOut 0.3s ease-out forwards;
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        .toast.success {
+            border-left: 4px solid var(--success);
+        }
+
+        .toast.error {
+            border-left: 4px solid var(--danger);
+        }
+
+        .toast.warning {
+            border-left: 4px solid var(--warning);
+        }
+
+        .toast.info {
+            border-left: 4px solid var(--accent);
+        }
+
+        .toast-icon {
+            font-size: 1.25rem;
+            flex-shrink: 0;
+        }
+
+        .toast-content {
+            flex: 1;
+        }
+
+        .toast-message {
+            color: var(--text-primary);
+            font-size: 0.875rem;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 4px;
+            font-size: 1.25rem;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .toast-close:hover {
+            color: var(--text-primary);
+        }
     </style>
 </head>
 <body>
@@ -360,8 +626,10 @@
             <div class="logo">🎬 Streaming</div>
             <nav>
                 <div class="nav-item active" data-page="dashboard">📊 Dashboard</div>
+                <div class="nav-item" data-page="analytics">📈 Analytics</div>
                 <div class="nav-item" data-page="streams">📡 Streams</div>
                 <div class="nav-item" data-page="vod">🎬 Recordings</div>
+                <div class="nav-item" data-page="monitoring">🛡️ Monitoring</div>
                 <div class="nav-item" data-page="security">🔒 Security</div>
                 <div class="nav-item" data-page="settings">⚙️ Settings</div>
                 <div class="nav-item" id="logout-btn">🚪 Logout</div>
@@ -415,6 +683,56 @@
                 </div>
             </div>
 
+            <!-- Analytics Page -->
+            <div id="page-analytics" class="page hidden">
+                <div class="header">
+                    <h1>Analytics</h1>
+                </div>
+
+                <div class="period-selector">
+                    <button class="period-btn" onclick="changeAnalyticsPeriod('1h')" data-period="1h">1 Hour</button>
+                    <button class="period-btn active" onclick="changeAnalyticsPeriod('24h')" data-period="24h">24 Hours</button>
+                    <button class="period-btn" onclick="changeAnalyticsPeriod('7d')" data-period="7d">7 Days</button>
+                    <button class="period-btn" onclick="changeAnalyticsPeriod('30d')" data-period="30d">30 Days</button>
+                </div>
+
+                <div class="analytics-grid">
+                    <div class="chart-container">
+                        <h3>Viewer Trends</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="viewers-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <h3>Bandwidth Usage</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="bandwidth-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Top Streams</h2>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Stream Name</th>
+                                <th>Total Views</th>
+                                <th>Max Viewers</th>
+                                <th>Avg Viewers</th>
+                            </tr>
+                        </thead>
+                        <tbody id="top-streams-table">
+                            <tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <!-- Streams Page -->
             <div id="page-streams" class="page hidden">
                 <div class="header">
@@ -429,12 +747,13 @@
                                 <th>Name</th>
                                 <th>Stream Key</th>
                                 <th>Status</th>
+                                <th>Viewers</th>
                                 <th>Views</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="all-streams-table">
-                            <tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">Loading...</td></tr>
+                            <tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">Loading...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -445,6 +764,20 @@
                 <div class="header">
                     <h1>Recordings</h1>
                 </div>
+
+                <div class="card" style="margin-bottom: 20px; padding: 16px;">
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <input type="text" id="vod-search" placeholder="Search recordings..." style="flex: 1; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--bg-tertiary); background: var(--bg-primary); color: var(--text-primary);">
+                        <select id="vod-status-filter" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--bg-tertiary); background: var(--bg-primary); color: var(--text-primary);">
+                            <option value="">All Status</option>
+                            <option value="completed">Completed</option>
+                            <option value="processing">Processing</option>
+                            <option value="failed">Failed</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="loadVOD()">Search</button>
+                    </div>
+                </div>
+
                 <div class="card">
                     <table>
                         <thead>
@@ -452,11 +785,58 @@
                                 <th>Name</th>
                                 <th>Duration</th>
                                 <th>Size</th>
+                                <th>Status</th>
                                 <th>Recorded</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="vod-table">
+                            <tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Monitoring Page -->
+            <div id="page-monitoring" class="page hidden">
+                <div class="header">
+                    <h1>Security Monitoring</h1>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="label">Blocked Requests (Today)</div>
+                        <div class="value" style="color: var(--danger);" id="stat-blocked">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Allowed Requests (Today)</div>
+                        <div class="value" style="color: var(--success);" id="stat-allowed">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Total Access Logs</div>
+                        <div class="value" id="stat-total-logs">0</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Access Logs</h2>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn btn-secondary btn-sm" onclick="filterAccessLogs('all')">All</button>
+                            <button class="btn btn-secondary btn-sm" onclick="filterAccessLogs('blocked')">Blocked Only</button>
+                        </div>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>IP Address</th>
+                                <th>Stream Key</th>
+                                <th>Domain</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="access-logs-table">
                             <tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">Loading...</td></tr>
                         </tbody>
                     </table>
@@ -487,27 +867,164 @@
                         </tbody>
                     </table>
                 </div>
+
+                <div class="card" style="margin-top: 20px;">
+                    <div class="card-header">
+                        <h2>Per-Stream Domain Whitelist</h2>
+                    </div>
+                    <div style="padding: 20px;">
+                        <div class="form-group">
+                            <label>Select Stream</label>
+                            <select id="stream-selector" style="width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--bg-tertiary); background: var(--bg-primary); color: var(--text-primary);" onchange="loadStreamDomains()">
+                                <option value="">Choose a stream...</option>
+                            </select>
+                        </div>
+
+                        <div id="stream-domains-section" class="hidden" style="margin-top: 20px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                                <h3 style="font-size: 1rem;">Allowed Domains for Selected Stream</h3>
+                                <button class="btn btn-primary btn-sm" onclick="openAddStreamDomainModal()">+ Add Domain</button>
+                            </div>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Domain</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="stream-domains-table">
+                                    <tr><td colspan="2" style="text-align: center; color: var(--text-secondary);">No per-stream domains configured</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 20px;">
+                    <div class="card-header">
+                        <h2>Domain Testing</h2>
+                    </div>
+                    <div style="padding: 20px;">
+                        <p style="color: var(--text-secondary); margin-bottom: 16px;">Test if a domain is allowed to embed a specific stream.</p>
+                        <div style="display: flex; gap: 12px;">
+                            <input type="text" id="test-stream-key" placeholder="Stream Key" style="flex: 1; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--bg-tertiary); background: var(--bg-primary); color: var(--text-primary);">
+                            <input type="text" id="test-domain" placeholder="Domain (e.g., example.com)" style="flex: 1; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--bg-tertiary); background: var(--bg-primary); color: var(--text-primary);">
+                            <button class="btn btn-primary" onclick="testDomain()">Test</button>
+                        </div>
+                        <div id="test-result" style="margin-top: 12px; display: none;"></div>
+                    </div>
+                </div>
             </div>
 
             <!-- Settings Page -->
             <div id="page-settings" class="page hidden">
                 <div class="header">
                     <h1>Settings</h1>
+                    <button class="btn btn-primary" onclick="saveSettings()">Save Changes</button>
                 </div>
-                <div class="card" style="padding: 24px;">
-                    <h3 style="margin-bottom: 20px;">Server Information</h3>
-                    <p style="color: var(--text-secondary); margin-bottom: 10px;">
-                        <strong>RTMP URL:</strong>
-                        <span class="code-block">rtmp://your-server:1935/live/{stream-key}</span>
-                    </p>
-                    <p style="color: var(--text-secondary); margin-bottom: 10px;">
-                        <strong>HLS Playback:</strong>
-                        <span class="code-block">https://your-server/live/{stream-key}/index.m3u8?token={token}&expires={timestamp}</span>
-                    </p>
-                    <p style="color: var(--text-secondary);">
-                        <strong>Embed Player:</strong>
-                        <span class="code-block">&lt;iframe src="https://your-server/embed/{stream-key}" width="640" height="360"&gt;&lt;/iframe&gt;</span>
-                    </p>
+
+                <div class="card" style="margin-bottom: 20px;">
+                    <div class="card-header">
+                        <h2>Server Status</h2>
+                    </div>
+                    <div style="padding: 20px;">
+                        <div class="stats-grid">
+                            <div>
+                                <div style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 4px;">API Server</div>
+                                <div id="server-status" style="font-weight: 600;">Loading...</div>
+                            </div>
+                            <div>
+                                <div style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 4px;">Redis</div>
+                                <div id="redis-status" style="font-weight: 600;">Loading...</div>
+                            </div>
+                            <div>
+                                <div style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 4px;">Database</div>
+                                <div id="db-status" style="font-weight: 600;">Loading...</div>
+                            </div>
+                            <div>
+                                <div style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 4px;">Uptime</div>
+                                <div id="server-uptime" style="font-weight: 600;">Loading...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom: 20px;">
+                    <div class="card-header">
+                        <h2>Server Configuration</h2>
+                    </div>
+                    <div style="padding: 20px;">
+                        <div class="form-group">
+                            <label>RTMP Server URL</label>
+                            <input type="text" id="setting-rtmp-url" placeholder="rtmp://your-server:1935/live">
+                        </div>
+                        <div class="form-group">
+                            <label>HLS Base URL</label>
+                            <input type="text" id="setting-hls-url" placeholder="https://your-server">
+                        </div>
+                        <div class="form-group">
+                            <label>Token Expiry (hours)</label>
+                            <input type="number" id="setting-token-expiry" placeholder="24" min="1" max="168">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom: 20px;">
+                    <div class="card-header">
+                        <h2>Feature Toggles</h2>
+                    </div>
+                    <div style="padding: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--bg-tertiary);">
+                            <div>
+                                <div style="font-weight: 500;">Automatic Recording</div>
+                                <div style="color: var(--text-secondary); font-size: 0.875rem;">Automatically record all streams</div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="setting-auto-recording">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--bg-tertiary);">
+                            <div>
+                                <div style="font-weight: 500;">Automatic Transcoding</div>
+                                <div style="color: var(--text-secondary); font-size: 0.875rem;">Auto-transcode recordings to HLS</div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="setting-auto-transcoding">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0;">
+                            <div>
+                                <div style="font-weight: 500;">Hotlink Protection</div>
+                                <div style="color: var(--text-secondary); font-size: 0.875rem;">Enable domain-based access control</div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="setting-hotlink-protection">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Server Information (Read-Only)</h2>
+                    </div>
+                    <div style="padding: 20px;">
+                        <p style="color: var(--text-secondary); margin-bottom: 10px;">
+                            <strong>RTMP URL Template:</strong>
+                            <span class="code-block">rtmp://your-server:1935/live/{stream-key}</span>
+                        </p>
+                        <p style="color: var(--text-secondary); margin-bottom: 10px;">
+                            <strong>HLS Playback Template:</strong>
+                            <span class="code-block">https://your-server/live/{stream-key}/index.m3u8?token={token}&expires={timestamp}</span>
+                        </p>
+                        <p style="color: var(--text-secondary);">
+                            <strong>Embed Player Template:</strong>
+                            <span class="code-block">&lt;iframe src="https://your-server/embed/{stream-key}" width="640" height="360"&gt;&lt;/iframe&gt;</span>
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -569,8 +1086,155 @@
         </div>
     </div>
 
+    <!-- Edit Stream Modal -->
+    <div class="modal-overlay" id="edit-stream-modal">
+        <div class="modal">
+            <h3>Edit Stream</h3>
+            <form id="edit-stream-form">
+                <input type="hidden" id="edit-stream-id">
+                <div class="form-group">
+                    <label>Stream Name</label>
+                    <input type="text" id="edit-stream-name" required>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" id="edit-stream-description">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('edit-stream-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div class="modal-overlay" id="confirm-modal">
+        <div class="modal">
+            <h3 id="confirm-title">Confirm Action</h3>
+            <p id="confirm-message" style="color: var(--text-secondary); margin-bottom: 20px;"></p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('confirm-modal')">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirm-btn">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stream Key Regenerated Modal -->
+    <div class="modal-overlay" id="key-regenerated-modal">
+        <div class="modal">
+            <h3>Stream Key Regenerated</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">New Stream Key:</p>
+            <div class="code-block" id="regenerated-stream-key"></div>
+            <p style="color: var(--warning); margin-top: 16px; font-size: 0.875rem;">Warning: The old stream key will no longer work. Update your encoder configuration.</p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-primary" onclick="closeModal('key-regenerated-modal')">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit VOD Modal -->
+    <div class="modal-overlay" id="edit-vod-modal">
+        <div class="modal">
+            <h3>Edit Recording</h3>
+            <form id="edit-vod-form">
+                <input type="hidden" id="edit-vod-id">
+                <div class="form-group">
+                    <label>Recording Name</label>
+                    <input type="text" id="edit-vod-name" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('edit-vod-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Stream Domain Modal -->
+    <div class="modal-overlay" id="add-stream-domain-modal">
+        <div class="modal">
+            <h3>Add Stream-Specific Domain</h3>
+            <form id="add-stream-domain-form">
+                <div class="form-group">
+                    <label>Domain</label>
+                    <input type="text" id="stream-domain-name" required placeholder="example.com">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('add-stream-domain-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Domain</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
     <script>
+        // =========================
+        // Notification System
+        // =========================
+
+        class NotificationManager {
+            constructor() {
+                this.container = document.getElementById('toast-container');
+            }
+
+            show(message, type = 'info', duration = 3000) {
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+
+                const icons = {
+                    success: '✓',
+                    error: '✗',
+                    warning: '⚠',
+                    info: 'ℹ'
+                };
+
+                toast.innerHTML = `
+                    <div class="toast-icon">${icons[type] || icons.info}</div>
+                    <div class="toast-content">
+                        <div class="toast-message">${message}</div>
+                    </div>
+                    <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+                `;
+
+                this.container.appendChild(toast);
+
+                if (duration > 0) {
+                    setTimeout(() => {
+                        toast.classList.add('removing');
+                        setTimeout(() => toast.remove(), 300);
+                    }, duration);
+                }
+
+                return toast;
+            }
+
+            success(message, duration = 3000) {
+                return this.show(message, 'success', duration);
+            }
+
+            error(message, duration = 4000) {
+                return this.show(message, 'error', duration);
+            }
+
+            warning(message, duration = 3500) {
+                return this.show(message, 'warning', duration);
+            }
+
+            info(message, duration = 3000) {
+                return this.show(message, 'info', duration);
+            }
+        }
+
+        const notify = new NotificationManager();
+
+        // =========================
         // State
+        // =========================
+
         let token = localStorage.getItem('token');
         let currentPage = 'dashboard';
 
@@ -650,9 +1314,12 @@
             document.querySelector(`.nav-item[data-page="${page}"]`).classList.add('active');
             currentPage = page;
 
+            if (page === 'analytics') loadAnalytics();
             if (page === 'streams') loadAllStreams();
             if (page === 'vod') loadVOD();
+            if (page === 'monitoring') loadMonitoring();
             if (page === 'security') loadDomains();
+            if (page === 'settings') loadSettings();
         }
 
         // Load data
@@ -701,14 +1368,21 @@
                             <td>${escapeHtml(stream.name)}</td>
                             <td><code>${stream.stream_key}</code></td>
                             <td><span class="badge ${stream.status}">${stream.status.toUpperCase()}</span></td>
+                            <td>${stream.current_viewers || 0}</td>
                             <td>${stream.total_views || 0}</td>
                             <td>
-                                <button class="btn btn-secondary" onclick="copyStreamKey('${stream.stream_key}')">Copy Key</button>
+                                <div class="action-buttons">
+                                    <button class="btn btn-secondary btn-sm" onclick="copyStreamKey('${stream.stream_key}')">Copy Key</button>
+                                    <button class="btn btn-secondary btn-sm" onclick="openEditStream('${stream.id}', '${escapeHtml(stream.name)}', '${escapeHtml(stream.description || '')}')">Edit</button>
+                                    ${stream.status === 'live' ? `<button class="btn btn-danger btn-sm" onclick="confirmStopStream('${stream.id}', '${escapeHtml(stream.name)}')">Stop</button>` : ''}
+                                    <button class="btn btn-secondary btn-sm" onclick="confirmRegenerateKey('${stream.id}', '${escapeHtml(stream.name)}')">Regen Key</button>
+                                    <button class="btn btn-danger btn-sm" onclick="confirmDeleteStream('${stream.id}', '${escapeHtml(stream.name)}')">Delete</button>
+                                </div>
                             </td>
                         </tr>
                     `).join('');
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">No streams yet</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><div><h3>No streams yet</h3><p>Create your first stream to get started</p></div></td></tr>';
                 }
             } catch (error) {
                 console.error('Failed to load all streams:', error);
@@ -717,23 +1391,62 @@
 
         async function loadVOD() {
             try {
-                const data = await api('/vod');
+                const searchTerm = document.getElementById('vod-search')?.value || '';
+                const statusFilter = document.getElementById('vod-status-filter')?.value || '';
+
+                let endpoint = '/vod?page=1&limit=50';
+                if (statusFilter) {
+                    endpoint += `&status=${statusFilter}`;
+                }
+
+                const data = await api(endpoint);
                 const tbody = document.getElementById('vod-table');
 
                 if (data.recordings && data.recordings.length > 0) {
-                    tbody.innerHTML = data.recordings.map(vod => `
-                        <tr>
-                            <td>${escapeHtml(vod.stream_name || 'Unknown')}</td>
-                            <td>${formatDuration(vod.duration)}</td>
-                            <td>${formatBytes(vod.file_size)}</td>
-                            <td>${formatDate(vod.recorded_at)}</td>
-                            <td>
-                                <button class="btn btn-secondary" onclick="playVOD('${vod.id}')">Play</button>
-                            </td>
-                        </tr>
-                    `).join('');
+                    let recordings = data.recordings;
+
+                    // Client-side search filtering
+                    if (searchTerm) {
+                        recordings = recordings.filter(vod =>
+                            (vod.stream_name || '').toLowerCase().includes(searchTerm.toLowerCase())
+                        );
+                    }
+
+                    if (recordings.length > 0) {
+                        tbody.innerHTML = recordings.map(vod => {
+                            const status = vod.status || 'completed';
+                            let statusBadge = '';
+                            if (status === 'completed') {
+                                statusBadge = '<span class="badge" style="background: rgba(34, 197, 94, 0.2); color: var(--success);">Completed</span>';
+                            } else if (status === 'processing') {
+                                statusBadge = '<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: var(--warning);">Processing</span>';
+                            } else if (status === 'failed') {
+                                statusBadge = '<span class="badge" style="background: rgba(239, 68, 68, 0.2); color: var(--danger);">Failed</span>';
+                            }
+
+                            return `
+                                <tr>
+                                    <td>${escapeHtml(vod.stream_name || 'Unknown')}</td>
+                                    <td>${formatDuration(vod.duration)}</td>
+                                    <td>${formatBytes(vod.file_size)}</td>
+                                    <td>${statusBadge}</td>
+                                    <td>${formatDate(vod.recorded_at)}</td>
+                                    <td>
+                                        <div class="action-buttons">
+                                            ${status === 'completed' ? `<button class="btn btn-secondary btn-sm" onclick="downloadVOD('${vod.id}')">Download</button>` : ''}
+                                            ${status === 'completed' ? `<button class="btn btn-secondary btn-sm" onclick="confirmTranscodeVOD('${vod.id}', '${escapeHtml(vod.stream_name || 'Unknown')}')">Transcode</button>` : ''}
+                                            <button class="btn btn-secondary btn-sm" onclick="openEditVOD('${vod.id}', '${escapeHtml(vod.stream_name || 'Unknown')}')">Edit</button>
+                                            <button class="btn btn-danger btn-sm" onclick="confirmDeleteVOD('${vod.id}', '${escapeHtml(vod.stream_name || 'Unknown')}')">Delete</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('');
+                    } else {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">No recordings match your search</td></tr>';
+                    }
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">No recordings yet</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><div><h3>No recordings yet</h3><p>Recordings will appear here after your streams are recorded</p></div></td></tr>';
                 }
             } catch (error) {
                 console.error('Failed to load VOD:', error);
@@ -751,15 +1464,142 @@
                             <td>${escapeHtml(domain.domain)}</td>
                             <td>${escapeHtml(domain.description || '-')}</td>
                             <td>
-                                <button class="btn btn-secondary" onclick="removeDomain('${domain.domain}')">Remove</button>
+                                <button class="btn btn-danger btn-sm" onclick="removeDomain('${domain.domain}')">Remove</button>
                             </td>
                         </tr>
                     `).join('');
                 } else {
                     tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-secondary);">No domains configured</td></tr>';
                 }
+
+                // Load streams for stream selector
+                await loadStreamSelector();
+
             } catch (error) {
                 console.error('Failed to load domains:', error);
+            }
+        }
+
+        async function loadStreamSelector() {
+            try {
+                const data = await api('/streams');
+                const select = document.getElementById('stream-selector');
+
+                if (data.streams && data.streams.length > 0) {
+                    const options = '<option value="">Choose a stream...</option>' +
+                        data.streams.map(stream => `
+                            <option value="${stream.stream_key}">${escapeHtml(stream.name)} (${stream.stream_key})</option>
+                        `).join('');
+                    select.innerHTML = options;
+                }
+            } catch (error) {
+                console.error('Failed to load streams:', error);
+            }
+        }
+
+        async function loadStreamDomains() {
+            const streamKey = document.getElementById('stream-selector').value;
+
+            if (!streamKey) {
+                document.getElementById('stream-domains-section').classList.add('hidden');
+                return;
+            }
+
+            document.getElementById('stream-domains-section').classList.remove('hidden');
+
+            try {
+                const data = await api(`/domains/stream/${streamKey}`);
+                const tbody = document.getElementById('stream-domains-table');
+
+                if (data.domains && data.domains.length > 0) {
+                    tbody.innerHTML = data.domains.map(domain => `
+                        <tr>
+                            <td>${escapeHtml(domain.domain)}</td>
+                            <td>
+                                <button class="btn btn-danger btn-sm" onclick="removeStreamDomain('${streamKey}', '${domain.domain}')">Remove</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--text-secondary);">No per-stream domains configured</td></tr>';
+                }
+            } catch (error) {
+                console.error('Failed to load stream domains:', error);
+            }
+        }
+
+        function openAddStreamDomainModal() {
+            const streamKey = document.getElementById('stream-selector').value;
+            if (!streamKey) {
+                notify.warning('Please select a stream first');
+                return;
+            }
+            openModal('add-stream-domain-modal');
+        }
+
+        document.getElementById('add-stream-domain-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const streamKey = document.getElementById('stream-selector').value;
+            const domain = document.getElementById('stream-domain-name').value;
+
+            try {
+                await api(`/domains/stream/${streamKey}`, {
+                    method: 'POST',
+                    body: JSON.stringify({ domain })
+                });
+
+                closeModal('add-stream-domain-modal');
+                document.getElementById('stream-domain-name').value = '';
+                notify.success('Domain added successfully');
+                loadStreamDomains();
+            } catch (error) {
+                notify.error('Failed to add domain');
+            }
+        });
+
+        async function removeStreamDomain(streamKey, domain) {
+            showConfirmDialog(
+                'Remove Domain',
+                `Remove domain "${domain}" from this stream?`,
+                async () => {
+                    try {
+                        await api(`/domains/stream/${streamKey}/${encodeURIComponent(domain)}`, {
+                            method: 'DELETE'
+                        });
+                        notify.success('Domain removed successfully');
+                        loadStreamDomains();
+                    } catch (error) {
+                        notify.error('Failed to remove domain');
+                    }
+                }
+            );
+        }
+
+        async function testDomain() {
+            const streamKey = document.getElementById('test-stream-key').value;
+            const domain = document.getElementById('test-domain').value;
+
+            if (!streamKey || !domain) {
+                notify.warning('Please enter both stream key and domain');
+                return;
+            }
+
+            try {
+                const result = await api('/domains/check', {
+                    method: 'POST',
+                    body: JSON.stringify({ streamKey, domain })
+                });
+
+                const resultDiv = document.getElementById('test-result');
+                resultDiv.style.display = 'block';
+
+                if (result.allowed) {
+                    resultDiv.innerHTML = '<div style="padding: 12px; border-radius: 8px; background: rgba(34, 197, 94, 0.2); color: var(--success);">✓ Domain is allowed</div>';
+                } else {
+                    resultDiv.innerHTML = '<div style="padding: 12px; border-radius: 8px; background: rgba(239, 68, 68, 0.2); color: var(--danger);">✗ Domain is blocked</div>';
+                }
+            } catch (error) {
+                notify.error('Failed to test domain');
             }
         }
 
@@ -786,7 +1626,7 @@
                 loadStats();
                 if (currentPage === 'streams') loadAllStreams();
             } catch (error) {
-                alert('Failed to create stream');
+                notify.error('Failed to create stream');
             }
         });
 
@@ -805,23 +1645,29 @@
                 closeModal('add-domain-modal');
                 document.getElementById('domain-name').value = '';
                 document.getElementById('domain-description').value = '';
+                notify.success('Domain added successfully');
                 loadDomains();
             } catch (error) {
-                alert('Failed to add domain');
+                notify.error('Failed to add domain');
             }
         });
 
         async function removeDomain(domain) {
-            if (!confirm(`Remove domain "${domain}"?`)) return;
-
-            try {
-                await api(`/domains/global/${encodeURIComponent(domain)}`, {
-                    method: 'DELETE'
-                });
-                loadDomains();
-            } catch (error) {
-                alert('Failed to remove domain');
-            }
+            showConfirmDialog(
+                'Remove Domain',
+                `Remove domain "${domain}"?`,
+                async () => {
+                    try {
+                        await api(`/domains/global/${encodeURIComponent(domain)}`, {
+                            method: 'DELETE'
+                        });
+                        notify.success('Domain removed successfully');
+                        loadDomains();
+                    } catch (error) {
+                        notify.error('Failed to remove domain');
+                    }
+                }
+            );
         }
 
         // Modals
@@ -844,7 +1690,7 @@
         // Utils
         function copyStreamKey(key) {
             navigator.clipboard.writeText(key);
-            alert('Stream key copied!');
+            notify.success('Stream key copied to clipboard!');
         }
 
         function escapeHtml(text) {
@@ -875,6 +1721,534 @@
                 i++;
             }
             return `${bytes.toFixed(1)} ${units[i]}`;
+        }
+
+        // =========================
+        // Analytics Functions
+        // =========================
+
+        let currentAnalyticsPeriod = '24h';
+        let viewersChart = null;
+        let bandwidthChart = null;
+
+        async function loadAnalytics(period = currentAnalyticsPeriod) {
+            try {
+                // Load viewers data
+                const viewersData = await api(`/stats/viewers?period=${period}`);
+                createViewersChart(viewersData);
+
+                // Load bandwidth data
+                const bandwidthData = await api(`/stats/bandwidth?period=${period}`);
+                createBandwidthChart(bandwidthData);
+
+                // Load top streams
+                const topStreamsData = await api(`/stats/top-streams?period=${period}&limit=10`);
+                displayTopStreams(topStreamsData.streams);
+
+            } catch (error) {
+                console.error('Failed to load analytics:', error);
+            }
+        }
+
+        function changeAnalyticsPeriod(period) {
+            currentAnalyticsPeriod = period;
+
+            // Update active button
+            document.querySelectorAll('.period-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.period === period) {
+                    btn.classList.add('active');
+                }
+            });
+
+            loadAnalytics(period);
+        }
+
+        function createViewersChart(data) {
+            const ctx = document.getElementById('viewers-chart');
+            if (!ctx) return;
+
+            // Destroy existing chart
+            if (viewersChart) {
+                viewersChart.destroy();
+            }
+
+            const labels = data.history.map(d => {
+                const date = new Date(d.hour);
+                if (currentAnalyticsPeriod === '1h') {
+                    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                } else if (currentAnalyticsPeriod === '24h') {
+                    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                } else {
+                    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                }
+            });
+
+            viewersChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Total Viewers',
+                        data: data.history.map(d => d.total_viewers || 0),
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 3,
+                        pointHoverRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#94a3b8',
+                                precision: 0
+                            },
+                            grid: {
+                                color: 'rgba(148, 163, 184, 0.1)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#94a3b8',
+                                maxRotation: 45,
+                                minRotation: 0
+                            },
+                            grid: {
+                                color: 'rgba(148, 163, 184, 0.1)'
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    }
+                }
+            });
+        }
+
+        function createBandwidthChart(data) {
+            const ctx = document.getElementById('bandwidth-chart');
+            if (!ctx) return;
+
+            // Destroy existing chart
+            if (bandwidthChart) {
+                bandwidthChart.destroy();
+            }
+
+            const labels = data.history.map(d => {
+                const date = new Date(d.hour);
+                if (currentAnalyticsPeriod === '1h') {
+                    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                } else if (currentAnalyticsPeriod === '24h') {
+                    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                } else {
+                    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                }
+            });
+
+            bandwidthChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Inbound (MB)',
+                            data: data.history.map(d => ((d.bandwidth_in || 0) / 1024 / 1024).toFixed(2)),
+                            backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                            borderColor: 'rgb(34, 197, 94)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Outbound (MB)',
+                            data: data.history.map(d => ((d.bandwidth_out || 0) / 1024 / 1024).toFixed(2)),
+                            backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                            borderColor: 'rgb(59, 130, 246)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            labels: {
+                                color: '#f8fafc'
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            stacked: false,
+                            ticks: {
+                                color: '#94a3b8',
+                                callback: function(value) {
+                                    return value + ' MB';
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(148, 163, 184, 0.1)'
+                            }
+                        },
+                        x: {
+                            stacked: false,
+                            ticks: {
+                                color: '#94a3b8',
+                                maxRotation: 45,
+                                minRotation: 0
+                            },
+                            grid: {
+                                color: 'rgba(148, 163, 184, 0.1)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function displayTopStreams(streams) {
+            const tbody = document.getElementById('top-streams-table');
+
+            if (streams && streams.length > 0) {
+                tbody.innerHTML = streams.map((stream, index) => `
+                    <tr>
+                        <td><strong>#${index + 1}</strong></td>
+                        <td>${escapeHtml(stream.name)}</td>
+                        <td>${stream.total_views || 0}</td>
+                        <td>${stream.max_viewers || 0}</td>
+                        <td>${Math.round(stream.avg_viewers) || 0}</td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">No stream data available</td></tr>';
+            }
+        }
+
+        // =========================
+        // Stream Management Functions
+        // =========================
+
+        function openEditStream(streamId, streamName, streamDescription) {
+            document.getElementById('edit-stream-id').value = streamId;
+            document.getElementById('edit-stream-name').value = streamName;
+            document.getElementById('edit-stream-description').value = streamDescription;
+            openModal('edit-stream-modal');
+        }
+
+        document.getElementById('edit-stream-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const streamId = document.getElementById('edit-stream-id').value;
+            const name = document.getElementById('edit-stream-name').value;
+            const description = document.getElementById('edit-stream-description').value;
+
+            try {
+                await api(`/streams/${streamId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ name, description })
+                });
+
+                closeModal('edit-stream-modal');
+                notify.success('Stream updated successfully');
+                loadAllStreams();
+                if (currentPage === 'dashboard') loadStreams();
+            } catch (error) {
+                notify.error('Failed to update stream');
+            }
+        });
+
+        function confirmStopStream(streamId, streamName) {
+            showConfirmDialog(
+                'Stop Live Stream',
+                `Are you sure you want to force stop "${streamName}"? This will disconnect the encoder and end the stream immediately.`,
+                async () => {
+                    try {
+                        await api(`/streams/${streamId}/stop`, { method: 'POST' });
+                        notify.success('Stream stopped successfully');
+                        loadAllStreams();
+                        if (currentPage === 'dashboard') {
+                            loadStats();
+                            loadStreams();
+                        }
+                    } catch (error) {
+                        notify.error('Failed to stop stream');
+                    }
+                }
+            );
+        }
+
+        function confirmRegenerateKey(streamId, streamName) {
+            showConfirmDialog(
+                'Regenerate Stream Key',
+                `Are you sure you want to regenerate the stream key for "${streamName}"? The current key will stop working immediately and you'll need to update your encoder.`,
+                async () => {
+                    try {
+                        const result = await api(`/streams/${streamId}/regenerate-key`, { method: 'POST' });
+                        document.getElementById('regenerated-stream-key').textContent = result.stream.stream_key;
+                        closeModal('confirm-modal');
+                        openModal('key-regenerated-modal');
+                        notify.success('Stream key regenerated successfully');
+                        loadAllStreams();
+                    } catch (error) {
+                        notify.error('Failed to regenerate stream key');
+                    }
+                }
+            );
+        }
+
+        function confirmDeleteStream(streamId, streamName) {
+            showConfirmDialog(
+                'Delete Stream',
+                `Are you sure you want to delete "${streamName}"? This action cannot be undone.`,
+                async () => {
+                    try {
+                        await api(`/streams/${streamId}`, { method: 'DELETE' });
+                        notify.success('Stream deleted successfully');
+                        loadAllStreams();
+                        if (currentPage === 'dashboard') {
+                            loadStats();
+                            loadStreams();
+                        }
+                    } catch (error) {
+                        notify.error('Failed to delete stream');
+                    }
+                }
+            );
+        }
+
+        function showConfirmDialog(title, message, onConfirm) {
+            document.getElementById('confirm-title').textContent = title;
+            document.getElementById('confirm-message').textContent = message;
+
+            const confirmBtn = document.getElementById('confirm-btn');
+            const newBtn = confirmBtn.cloneNode(true);
+            confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
+
+            newBtn.addEventListener('click', () => {
+                onConfirm();
+                closeModal('confirm-modal');
+            });
+
+            openModal('confirm-modal');
+        }
+
+        // =========================
+        // VOD Management Functions
+        // =========================
+
+        function openEditVOD(vodId, vodName) {
+            document.getElementById('edit-vod-id').value = vodId;
+            document.getElementById('edit-vod-name').value = vodName;
+            openModal('edit-vod-modal');
+        }
+
+        document.getElementById('edit-vod-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const vodId = document.getElementById('edit-vod-id').value;
+            const stream_name = document.getElementById('edit-vod-name').value;
+
+            try {
+                await api(`/vod/${vodId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ stream_name })
+                });
+
+                closeModal('edit-vod-modal');
+                notify.success('Recording updated successfully');
+                loadVOD();
+            } catch (error) {
+                notify.error('Failed to update recording');
+            }
+        });
+
+        function downloadVOD(vodId) {
+            window.location.href = `/api/vod/${vodId}/download`;
+        }
+
+        function confirmTranscodeVOD(vodId, vodName) {
+            showConfirmDialog(
+                'Transcode to HLS',
+                `Start HLS transcoding for "${vodName}"? This may take several minutes depending on the recording length.`,
+                async () => {
+                    try {
+                        await api(`/vod/${vodId}/transcode`, { method: 'POST' });
+                        notify.success('Transcoding started successfully');
+                        loadVOD();
+                    } catch (error) {
+                        notify.error('Failed to start transcoding');
+                    }
+                }
+            );
+        }
+
+        function confirmDeleteVOD(vodId, vodName) {
+            showConfirmDialog(
+                'Delete Recording',
+                `Are you sure you want to delete "${vodName}"? This action cannot be undone. Delete the file from disk as well?`,
+                async () => {
+                    try {
+                        await api(`/vod/${vodId}?deleteFile=true`, { method: 'DELETE' });
+                        notify.success('Recording deleted successfully');
+                        loadVOD();
+                    } catch (error) {
+                        notify.error('Failed to delete recording');
+                    }
+                }
+            );
+        }
+
+        // =========================
+        // Settings Functions
+        // =========================
+
+        async function loadSettings() {
+            try {
+                // Load server status
+                const serverStatus = await api('/config/server');
+                displayServerStatus(serverStatus);
+
+                // Load settings
+                const settingsData = await api('/settings');
+                displaySettings(settingsData.settings);
+
+            } catch (error) {
+                console.error('Failed to load settings:', error);
+            }
+        }
+
+        function displayServerStatus(status) {
+            document.getElementById('server-status').textContent = status.status === 'online' ? '✓ Online' : '✗ Offline';
+            document.getElementById('server-status').style.color = status.status === 'online' ? 'var(--success)' : 'var(--danger)';
+
+            document.getElementById('redis-status').textContent = status.redis_status === 'connected' ? '✓ Connected' : '✗ Disconnected';
+            document.getElementById('redis-status').style.color = status.redis_status === 'connected' ? 'var(--success)' : 'var(--danger)';
+
+            document.getElementById('db-status').textContent = status.db_status === 'connected' ? '✓ Connected' : '✗ Disconnected';
+            document.getElementById('db-status').style.color = status.db_status === 'connected' ? 'var(--success)' : 'var(--danger)';
+
+            const uptimeHours = Math.floor(status.uptime_seconds / 3600);
+            const uptimeMinutes = Math.floor((status.uptime_seconds % 3600) / 60);
+            document.getElementById('server-uptime').textContent = `${uptimeHours}h ${uptimeMinutes}m`;
+        }
+
+        function displaySettings(settings) {
+            // Populate form fields
+            if (settings.rtmp_url) {
+                document.getElementById('setting-rtmp-url').value = settings.rtmp_url;
+            }
+            if (settings.hls_url) {
+                document.getElementById('setting-hls-url').value = settings.hls_url;
+            }
+            if (settings.token_expiry_hours) {
+                document.getElementById('setting-token-expiry').value = settings.token_expiry_hours;
+            }
+
+            // Set feature toggles
+            document.getElementById('setting-auto-recording').checked = settings.auto_recording === true || settings.auto_recording === 'true';
+            document.getElementById('setting-auto-transcoding').checked = settings.auto_transcoding === true || settings.auto_transcoding === 'true';
+            document.getElementById('setting-hotlink-protection').checked = settings.hotlink_protection === true || settings.hotlink_protection === 'true';
+        }
+
+        async function saveSettings() {
+            try {
+                const settings = {
+                    rtmp_url: document.getElementById('setting-rtmp-url').value,
+                    hls_url: document.getElementById('setting-hls-url').value,
+                    token_expiry_hours: document.getElementById('setting-token-expiry').value,
+                    auto_recording: document.getElementById('setting-auto-recording').checked,
+                    auto_transcoding: document.getElementById('setting-auto-transcoding').checked,
+                    hotlink_protection: document.getElementById('setting-hotlink-protection').checked
+                };
+
+                // Save each setting
+                for (const [key, value] of Object.entries(settings)) {
+                    if (value !== '' && value !== null && value !== undefined) {
+                        await api(`/settings/${key}`, {
+                            method: 'PUT',
+                            body: JSON.stringify({ value })
+                        });
+                    }
+                }
+
+                notify.success('Settings saved successfully!');
+
+            } catch (error) {
+                console.error('Failed to save settings:', error);
+                notify.error('Failed to save settings');
+            }
+        }
+
+        // =========================
+        // Monitoring Functions
+        // =========================
+
+        let currentAccessLogFilter = 'all';
+
+        async function loadMonitoring() {
+            try {
+                // Load access logs
+                const logsData = await api(`/stats/access-logs?page=1&limit=50${currentAccessLogFilter === 'blocked' ? '&filter=blocked' : ''}`);
+                displayAccessLogs(logsData.logs);
+
+                // Calculate stats
+                const blockedCount = logsData.logs.filter(log => !log.is_allowed).length;
+                const allowedCount = logsData.logs.filter(log => log.is_allowed).length;
+
+                document.getElementById('stat-blocked').textContent = blockedCount;
+                document.getElementById('stat-allowed').textContent = allowedCount;
+                document.getElementById('stat-total-logs').textContent = logsData.pagination.total;
+
+            } catch (error) {
+                console.error('Failed to load monitoring data:', error);
+            }
+        }
+
+        function filterAccessLogs(filter) {
+            currentAccessLogFilter = filter;
+            loadMonitoring();
+        }
+
+        function displayAccessLogs(logs) {
+            const tbody = document.getElementById('access-logs-table');
+
+            if (logs && logs.length > 0) {
+                tbody.innerHTML = logs.map(log => `
+                    <tr>
+                        <td>${formatDate(log.created_at)}</td>
+                        <td><code>${escapeHtml(log.ip_address || 'N/A')}</code></td>
+                        <td><code>${escapeHtml(log.stream_key || 'N/A')}</code></td>
+                        <td>${escapeHtml(log.domain || 'N/A')}</td>
+                        <td>
+                            ${log.is_allowed
+                                ? '<span class="badge" style="background: rgba(34, 197, 94, 0.2); color: var(--success);">Allowed</span>'
+                                : '<span class="badge" style="background: rgba(239, 68, 68, 0.2); color: var(--danger);">Blocked</span>'}
+                        </td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">No access logs yet</td></tr>';
+            }
         }
 
         // Initialize

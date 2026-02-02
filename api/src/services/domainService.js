@@ -280,13 +280,14 @@ async function getStreamDomains(streamKey) {
 async function invalidateDomainCache(streamKey = null) {
     try {
         if (streamKey) {
-            const keys = await redis.keys(`domain:${streamKey}:*`);
+            // Use SCAN instead of KEYS to avoid blocking Redis
+            const keys = await redis.scan(`domain:${streamKey}:*`);
             for (const key of keys) {
                 await redis.del(key);
             }
         } else {
             // Invalidate all domain caches
-            const keys = await redis.keys('domain:*');
+            const keys = await redis.scan('domain:*');
             for (const key of keys) {
                 await redis.del(key);
             }

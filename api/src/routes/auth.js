@@ -4,11 +4,11 @@
 
 const express = require('express');
 const bcrypt = require('bcrypt');
-const { body, validationResult } = require('express-validator');
 const router = express.Router();
 
 const db = require('../services/database');
 const logger = require('../services/logger');
+const auditLogger = require('../services/auditLogger');
 const config = require('../config');
 const {
     verifyToken,
@@ -16,25 +16,32 @@ const {
     generateRefreshToken,
     verifyRefreshToken
 } = require('../middleware/auth');
+const { body, validationResult } = require('express-validator');
+const {
+    handleValidationErrors,
+    validateUsername,
+    validatePassword,
+    validateEmail
+} = require('../middleware/validation');
 
 /**
  * POST /api/auth/login
  * Admin login
  */
-router.post('/login', [
-    body('username').trim().notEmpty().withMessage('Username is required'),
-    body('password').notEmpty().withMessage('Password is required')
-], async (req, res) => {
-    try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            return res.status(400).json({
-                error: 'Validation Error',
-                details: errors.array()
-            });
-        }
+router.post('/login',
+    validateUsername(),
+    handleValidationErrors,
+    async (req, res) => {
+        try {
+            const { username, password } = req.body;
 
-        const { username, password } = req.body;
+            // Basic password presence check (don't validate strength on login)
+            if (!password) {
+                return res.status(400).json({
+                    error: 'Validation Error',
+                    message: 'Password is required'
+                });
+            }
 
         // Find user
         const result = await db.query(
@@ -71,6 +78,16 @@ router.post('/login', [
         const refreshToken = generateRefreshToken(user);
 
         logger.info(`User ${username} logged in`);
+
+        // Log audit trail
+        await auditLogger.logAudit(
+            user.id,
+            'auth.login',
+            'user',
+            user.id.toString(),
+            null,
+            req
+        );
 
         res.json({
             message: 'Login successful',

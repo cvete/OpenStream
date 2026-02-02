@@ -105,9 +105,30 @@ async function expire(key, seconds) {
 
 /**
  * Get all keys matching a pattern
+ * WARNING: This uses KEYS which blocks Redis. Use scan() for production.
+ * @deprecated Use scan() instead
  */
 async function keys(pattern) {
     return await client.keys(pattern);
+}
+
+/**
+ * Scan for keys matching a pattern (non-blocking alternative to KEYS)
+ */
+async function scan(pattern, count = 100) {
+    const keys = [];
+    let cursor = 0;
+
+    do {
+        const result = await client.scan(cursor, {
+            MATCH: pattern,
+            COUNT: count
+        });
+        cursor = result.cursor;
+        keys.push(...result.keys);
+    } while (cursor !== 0);
+
+    return keys;
 }
 
 /**
@@ -171,6 +192,24 @@ async function getViewerCount(streamKey) {
     return parseInt(count) || 0;
 }
 
+async function getViewerCountsBatch(streamKeys) {
+    if (streamKeys.length === 0) return {};
+
+    // Use Redis pipeline for batch operations
+    const pipeline = client.multi();
+    streamKeys.forEach(key => {
+        pipeline.get(`stream:${key}:viewer_count`);
+    });
+
+    const results = await pipeline.exec();
+    const counts = {};
+    streamKeys.forEach((key, index) => {
+        counts[key] = parseInt(results[index]) || 0;
+    });
+
+    return counts;
+}
+
 async function setStreamLive(streamKey, data) {
     await client.hSet('live_streams', streamKey, JSON.stringify(data));
 }
@@ -205,6 +244,7 @@ module.exports = {
     decr,
     expire,
     keys,
+    scan,
     hSet,
     hGet,
     hGetAll,
@@ -213,6 +253,7 @@ module.exports = {
     addViewer,
     removeViewer,
     getViewerCount,
+    getViewerCountsBatch,
     setStreamLive,
     setStreamOffline,
     getLiveStreams

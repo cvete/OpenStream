@@ -14,6 +14,7 @@ const config = require('./config');
 const logger = require('./services/logger');
 const { initDatabase } = require('./services/database');
 const { initRedis } = require('./services/redis');
+const { initSentry, initSentryErrorHandler } = require('./services/sentry');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -24,27 +25,62 @@ const hooksRoutes = require('./routes/hooks');
 const internalRoutes = require('./routes/internal');
 const embedRoutes = require('./routes/embed');
 const domainsRoutes = require('./routes/domains');
+const settingsRoutes = require('./routes/settings');
+const auditRoutes = require('./routes/audit');
 
 const app = express();
+
+// Initialize Sentry FIRST (must be before other middleware)
+initSentry(app);
 
 // Trust proxy (for rate limiting behind NGINX)
 app.set('trust proxy', 1);
 
 // Security middleware
 app.use(helmet({
-    contentSecurityPolicy: false, // Disabled for embed player
-    crossOriginEmbedderPolicy: false
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "https:"],
+            connectSrc: ["'self'"],
+            frameSrc: ["'self'", ...(config.cors.allowedOrigins || [])],
+            objectSrc: ["'none'"],
+            upgradeInsecureRequests: []
+        }
+    },
+    crossOriginEmbedderPolicy: false,  // Keep disabled for embed player
+    hsts: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+        preload: true
+    }
 }));
 
 // CORS configuration
 app.use(cors({
     origin: (origin, callback) => {
-        // Allow requests with no origin (mobile apps, curl, etc.)
+        // Allow requests with no origin (mobile apps, curl, server-to-server)
         if (!origin) return callback(null, true);
 
-        // In production, validate against allowed domains
-        // For now, allow all origins
-        callback(null, true);
+        // Check whitelist
+        if (config.cors.allowedOrigins.length === 0) {
+            // Development mode - allow all if no origins configured
+            if (config.isDevelopment) {
+                return callback(null, true);
+            }
+            // Production - require explicit whitelist
+            logger.warn(`CORS rejected: No allowed origins configured, origin: ${origin}`);
+            return callback(new Error('Not allowed by CORS'));
+        }
+
+        if (config.cors.allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            logger.warn(`CORS rejected: Unauthorized origin: ${origin}`);
+            callback(new Error('Not allowed by CORS'));
+        }
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -73,6 +109,20 @@ const globalLimiter = rateLimit({
 });
 app.use(globalLimiter);
 
+// Strict rate limit for authentication endpoints
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // 5 attempts per window
+    message: { error: 'Too many login attempts, please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: true  // Only count failed attempts
+});
+
+// Apply strict limiter to auth routes
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+
 // Health check endpoint
 app.get('/health', (req, res) => {
     res.json({
@@ -90,6 +140,9 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/hooks', hooksRoutes);
 app.use('/api/internal', internalRoutes);
 app.use('/api/domains', domainsRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/config', settingsRoutes);
+app.use('/api/audit', auditRoutes);
 app.use('/embed', embedRoutes);
 
 // 404 handler
@@ -99,6 +152,9 @@ app.use((req, res) => {
         message: `Route ${req.method} ${req.path} not found`
     });
 });
+
+// Sentry error handler (must be after routes but before other error handlers)
+initSentryErrorHandler(app);
 
 // Error handler
 app.use((err, req, res, next) => {

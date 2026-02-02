@@ -9,12 +9,13 @@ const router = express.Router();
 const db = require('../services/database');
 const redis = require('../services/redis');
 const logger = require('../services/logger');
+const { verifyWebhookSignature } = require('../middleware/webhookAuth');
 
 /**
  * POST /api/hooks/publish
  * Called when a stream starts publishing
  */
-router.post('/publish', async (req, res) => {
+router.post('/publish', verifyWebhookSignature, async (req, res) => {
     try {
         const {
             action,
@@ -85,7 +86,7 @@ router.post('/publish', async (req, res) => {
  * POST /api/hooks/unpublish
  * Called when a stream stops publishing
  */
-router.post('/unpublish', async (req, res) => {
+router.post('/unpublish', verifyWebhookSignature, async (req, res) => {
     try {
         const {
             action,
@@ -141,7 +142,7 @@ router.post('/unpublish', async (req, res) => {
  * POST /api/hooks/play
  * Called when a viewer starts watching
  */
-router.post('/play', async (req, res) => {
+router.post('/play', verifyWebhookSignature, async (req, res) => {
     try {
         const {
             action,
@@ -194,7 +195,7 @@ router.post('/play', async (req, res) => {
  * POST /api/hooks/stop
  * Called when a viewer stops watching
  */
-router.post('/stop', async (req, res) => {
+router.post('/stop', verifyWebhookSignature, async (req, res) => {
     try {
         const {
             action,
@@ -230,7 +231,7 @@ router.post('/stop', async (req, res) => {
  * POST /api/hooks/dvr
  * Called when a DVR recording is complete
  */
-router.post('/dvr', async (req, res) => {
+router.post('/dvr', verifyWebhookSignature, async (req, res) => {
     try {
         const {
             action,
@@ -275,7 +276,7 @@ router.post('/dvr', async (req, res) => {
  * POST /api/hooks/hls
  * Called for HLS events (optional)
  */
-router.post('/hls', async (req, res) => {
+router.post('/hls', verifyWebhookSignature, async (req, res) => {
     try {
         const { action, client_id, ip, vhost, app, stream, duration, cwd, file, url } = req.body;
 
@@ -296,7 +297,7 @@ router.post('/hls', async (req, res) => {
  * POST /api/hooks/on_connect
  * Called when RTMP client connects (before publish/play)
  */
-router.post('/on_connect', async (req, res) => {
+router.post('/on_connect', verifyWebhookSignature, async (req, res) => {
     try {
         const { action, client_id, ip, vhost, app, tcUrl, pageUrl } = req.body;
 
@@ -317,7 +318,7 @@ router.post('/on_connect', async (req, res) => {
  * POST /api/hooks/on_close
  * Called when RTMP client disconnects
  */
-router.post('/on_close', async (req, res) => {
+router.post('/on_close', verifyWebhookSignature, async (req, res) => {
     try {
         const { action, client_id, ip, vhost, app, send_bytes, recv_bytes } = req.body;
 

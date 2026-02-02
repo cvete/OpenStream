@@ -30,7 +30,11 @@ function verifyToken(req, res, next) {
     const token = parts[1];
 
     try {
-        const decoded = jwt.verify(token, config.jwt.secret);
+        const decoded = jwt.verify(token, config.jwt.secret, {
+            algorithms: ['HS256'],  // Prevent algorithm substitution attacks
+            issuer: 'openstream-api',
+            maxAge: '24h'
+        });
         req.user = decoded;
         next();
     } catch (error) {
@@ -74,7 +78,11 @@ function optionalToken(req, res, next) {
     const token = parts[1];
 
     try {
-        const decoded = jwt.verify(token, config.jwt.secret);
+        const decoded = jwt.verify(token, config.jwt.secret, {
+            algorithms: ['HS256'],
+            issuer: 'openstream-api',
+            maxAge: '24h'
+        });
         req.user = decoded;
     } catch (error) {
         // Ignore token errors for optional auth
@@ -139,7 +147,11 @@ function generateToken(user) {
             role: user.role
         },
         config.jwt.secret,
-        { expiresIn: config.jwt.expiresIn }
+        {
+            expiresIn: config.jwt.expiresIn,
+            algorithm: 'HS256',
+            issuer: 'openstream-api'
+        }
     );
 }
 
@@ -153,7 +165,11 @@ function generateRefreshToken(user) {
             type: 'refresh'
         },
         config.jwt.secret,
-        { expiresIn: config.jwt.refreshExpiresIn }
+        {
+            expiresIn: config.jwt.refreshExpiresIn,
+            algorithm: 'HS256',
+            issuer: 'openstream-api'
+        }
     );
 }
 
@@ -162,7 +178,10 @@ function generateRefreshToken(user) {
  */
 function verifyRefreshToken(token) {
     try {
-        const decoded = jwt.verify(token, config.jwt.secret);
+        const decoded = jwt.verify(token, config.jwt.secret, {
+            algorithms: ['HS256'],
+            issuer: 'openstream-api'
+        });
         if (decoded.type !== 'refresh') {
             return null;
         }

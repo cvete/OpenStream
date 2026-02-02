@@ -60,3 +60,6 @@ volumes/
 tmp/
 temp/
 *.tmp
+
+# Claude Code local configuration
+.claude/

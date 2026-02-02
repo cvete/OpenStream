@@ -3,22 +3,35 @@
  */
 
 const express = require('express');
-const { body, param, validationResult } = require('express-validator');
 const router = express.Router();
 
 const db = require('../services/database');
 const redis = require('../services/redis');
 const logger = require('../services/logger');
+const auditLogger = require('../services/auditLogger');
 const { verifyToken, requireAdmin } = require('../middleware/auth');
 const tokenService = require('../services/tokenService');
+const {
+    handleValidationErrors,
+    validatePagination,
+    validateStreamId,
+    validateStreamName,
+    validateStreamDescription,
+    validateEnum
+} = require('../middleware/validation');
 
 /**
  * GET /api/streams
  * List all streams
  */
-router.get('/', verifyToken, async (req, res) => {
-    try {
-        const { status, page = 1, limit = 20 } = req.query;
+router.get('/',
+    verifyToken,
+    validatePagination(),
+    validateEnum('status', ['offline', 'live', 'error'], 'query'),
+    handleValidationErrors,
+    async (req, res) => {
+        try {
+            const { status, page = 1, limit = 20 } = req.query;
         const offset = (page - 1) * limit;
 
         let query = `
@@ -39,13 +52,13 @@ router.get('/', verifyToken, async (req, res) => {
 
         const result = await db.query(query, params);
 
-        // Get viewer counts from Redis
-        const streams = await Promise.all(result.rows.map(async (stream) => {
-            const viewerCount = await redis.getViewerCount(stream.stream_key);
-            return {
-                ...stream,
-                current_viewers: viewerCount
-            };
+        // Get viewer counts from Redis in batch (fixes N+1 query problem)
+        const streamKeys = result.rows.map(s => s.stream_key);
+        const viewerCounts = await redis.getViewerCountsBatch(streamKeys);
+
+        const streams = result.rows.map(stream => ({
+            ...stream,
+            current_viewers: viewerCounts[stream.stream_key] || 0
         }));
 
         // Get total count
@@ -77,20 +90,14 @@ router.get('/', verifyToken, async (req, res) => {
  * POST /api/streams
  * Create a new stream
  */
-router.post('/', verifyToken, [
-    body('name').trim().notEmpty().withMessage('Stream name is required'),
-    body('description').optional().trim()
-], async (req, res) => {
-    try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            return res.status(400).json({
-                error: 'Validation Error',
-                details: errors.array()
-            });
-        }
-
-        const { name, description } = req.body;
+router.post('/',
+    verifyToken,
+    validateStreamName(),
+    validateStreamDescription(),
+    handleValidationErrors,
+    async (req, res) => {
+        try {
+            const { name, description } = req.body;
 
         // Generate unique stream key
         const streamKey = tokenService.generateStreamKey();
@@ -103,6 +110,16 @@ router.post('/', verifyToken, [
         );
 
         logger.info(`Stream created: ${name} (${streamKey}) by ${req.user.username}`);
+
+        // Log audit trail
+        await auditLogger.logAudit(
+            req.user.id,
+            'stream.create',
+            'stream',
+            result.rows[0].id.toString(),
+            { stream_key: streamKey, name },
+            req
+        );
 
         res.status(201).json({
             message: 'Stream created successfully',
