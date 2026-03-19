@@ -7,6 +7,7 @@ const config = require('../config');
 const logger = require('./logger');
 
 let client = null;
+let isConnected = false;
 
 /**
  * Initialize Redis connection
@@ -17,6 +18,7 @@ async function initRedis() {
     });
 
     client.on('error', (err) => {
+        isConnected = false;
         logger.error('Redis error:', err);
     });
 
@@ -25,11 +27,35 @@ async function initRedis() {
     });
 
     client.on('ready', () => {
+        isConnected = true;
         logger.info('Redis connection ready');
     });
 
-    await client.connect();
+    client.on('end', () => {
+        isConnected = false;
+    });
+
+    try {
+        await client.connect();
+    } catch (err) {
+        logger.warn('Redis connection failed, running in degraded mode:', err.message);
+        isConnected = false;
+    }
+
     return client;
+}
+
+/**
+ * Safe execution wrapper — returns fallback if Redis is unavailable
+ */
+async function safeExec(fn, fallback = null) {
+    if (!client || !isConnected) return fallback;
+    try {
+        return await fn();
+    } catch (err) {
+        logger.warn('Redis operation failed:', err.message);
+        return fallback;
+    }
 }
 
 /**
@@ -175,66 +201,131 @@ async function publish(channel, message) {
 }
 
 /**
- * Stream viewer tracking
+ * Stream viewer tracking (resilient — degrades gracefully if Redis is down)
  */
 async function addViewer(streamKey, viewerId) {
-    await client.sAdd(`stream:${streamKey}:viewers`, viewerId);
-    await client.incr(`stream:${streamKey}:viewer_count`);
+    return safeExec(async () => {
+        await client.sAdd(`stream:${streamKey}:viewers`, viewerId);
+        await client.incr(`stream:${streamKey}:viewer_count`);
+    });
 }
 
 async function removeViewer(streamKey, viewerId) {
-    await client.sRem(`stream:${streamKey}:viewers`, viewerId);
-    await client.decr(`stream:${streamKey}:viewer_count`);
+    return safeExec(async () => {
+        await client.sRem(`stream:${streamKey}:viewers`, viewerId);
+        await client.decr(`stream:${streamKey}:viewer_count`);
+    });
 }
 
 async function getViewerCount(streamKey) {
-    const count = await client.get(`stream:${streamKey}:viewer_count`);
-    return parseInt(count) || 0;
+    return safeExec(async () => {
+        const count = await client.get(`stream:${streamKey}:viewer_count`);
+        return parseInt(count) || 0;
+    }, 0);
 }
 
 async function getViewerCountsBatch(streamKeys) {
     if (streamKeys.length === 0) return {};
-
-    // Use Redis pipeline for batch operations
-    const pipeline = client.multi();
-    streamKeys.forEach(key => {
-        pipeline.get(`stream:${key}:viewer_count`);
-    });
-
-    const results = await pipeline.exec();
-    const counts = {};
-    streamKeys.forEach((key, index) => {
-        counts[key] = parseInt(results[index]) || 0;
-    });
-
-    return counts;
+    return safeExec(async () => {
+        const pipeline = client.multi();
+        streamKeys.forEach(key => {
+            pipeline.get(`stream:${key}:viewer_count`);
+        });
+        const results = await pipeline.exec();
+        const counts = {};
+        streamKeys.forEach((key, index) => {
+            counts[key] = parseInt(results[index]) || 0;
+        });
+        return counts;
+    }, {});
 }
 
 async function setStreamLive(streamKey, data) {
-    await client.hSet('live_streams', streamKey, JSON.stringify(data));
+    return safeExec(async () => {
+        await client.hSet('live_streams', streamKey, JSON.stringify(data));
+    });
 }
 
 async function setStreamOffline(streamKey) {
-    await client.hDel('live_streams', streamKey);
-    await client.del(`stream:${streamKey}:viewers`);
-    await client.del(`stream:${streamKey}:viewer_count`);
+    return safeExec(async () => {
+        await client.hDel('live_streams', streamKey);
+        await client.del(`stream:${streamKey}:viewers`);
+        await client.del(`stream:${streamKey}:viewer_count`);
+    });
 }
 
 async function getLiveStreams() {
-    const data = await client.hGetAll('live_streams');
-    const streams = {};
-    for (const [key, value] of Object.entries(data)) {
-        try {
-            streams[key] = JSON.parse(value);
-        } catch {
-            streams[key] = value;
+    return safeExec(async () => {
+        const data = await client.hGetAll('live_streams');
+        const streams = {};
+        for (const [key, value] of Object.entries(data)) {
+            try {
+                streams[key] = JSON.parse(value);
+            } catch {
+                streams[key] = value;
+            }
         }
+        return streams;
+    }, {});
+}
+
+/**
+ * Disconnect Redis client
+ */
+async function disconnect() {
+    if (client) {
+        await client.quit();
+        client = null;
+        logger.info('Redis connection closed');
     }
-    return streams;
+}
+
+/**
+ * Login attempt tracking for account lockout
+ */
+async function incrementLoginAttempts(username) {
+    return safeExec(async () => {
+        const key = `login_attempts:${username}`;
+        const count = await client.incr(key);
+        if (count === 1) {
+            await client.expire(key, Math.ceil(config.security.lockoutDuration / 1000));
+        }
+        return count;
+    }, 0);
+}
+
+async function getLoginAttempts(username) {
+    return safeExec(async () => {
+        const count = await client.get(`login_attempts:${username}`);
+        return parseInt(count) || 0;
+    }, 0);
+}
+
+async function clearLoginAttempts(username) {
+    return safeExec(async () => {
+        await client.del(`login_attempts:${username}`);
+    });
+}
+
+/**
+ * Token blacklist for revocation
+ */
+async function blacklistToken(jti, ttlSeconds) {
+    return safeExec(async () => {
+        await client.setEx(`blacklist:${jti}`, ttlSeconds, '1');
+    });
+}
+
+async function isTokenBlacklisted(jti) {
+    return safeExec(async () => {
+        const result = await client.exists(`blacklist:${jti}`);
+        return result === 1;
+    }, false);
 }
 
 module.exports = {
     initRedis,
+    disconnect,
     getClient,
     set,
     get,
@@ -256,5 +347,10 @@ module.exports = {
     getViewerCountsBatch,
     setStreamLive,
     setStreamOffline,
-    getLiveStreams
+    getLiveStreams,
+    incrementLoginAttempts,
+    getLoginAttempts,
+    clearLoginAttempts,
+    blacklistToken,
+    isTokenBlacklisted
 };

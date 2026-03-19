@@ -16,15 +16,22 @@ function verifyWebhookSignature(req, res, next) {
     const whitelist = config.srs.webhookIpWhitelist || ['127.0.0.1', '::1', '::ffff:127.0.0.1'];
 
     // Check if IP is whitelisted
+    const ipToNum = (ip) => ip.split('.').reduce((acc, oct) => (acc << 8) + parseInt(oct), 0) >>> 0;
+    const normalizeIp = (ip) => ip.replace(/^::ffff:/, '');
+
+    const normalizedClientIp = normalizeIp(clientIp);
+
     const isWhitelisted = whitelist.some(allowedIp => {
-        // Handle CIDR notation for /8, /16, /24 subnets
+        // Handle CIDR notation (supports all masks /1 through /32)
         if (allowedIp.includes('/')) {
             const [subnet, bits] = allowedIp.split('/');
-            const subnetPrefix = subnet.split('.').slice(0, parseInt(bits) / 8).join('.');
-            return clientIp.startsWith(subnetPrefix);
+            const maskBits = parseInt(bits);
+            if (maskBits < 0 || maskBits > 32) return false;
+            const mask = maskBits === 0 ? 0 : (~(2 ** (32 - maskBits) - 1)) >>> 0;
+            return (ipToNum(normalizedClientIp) & mask) === (ipToNum(subnet) & mask);
         }
-        // Exact match
-        return clientIp === allowedIp || clientIp === `::ffff:${allowedIp}`;
+        // Exact match (handle IPv6-mapped IPv4)
+        return normalizedClientIp === normalizeIp(allowedIp);
     });
 
     if (!isWhitelisted) {

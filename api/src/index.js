@@ -12,8 +12,8 @@ const rateLimit = require('express-rate-limit');
 
 const config = require('./config');
 const logger = require('./services/logger');
-const { initDatabase } = require('./services/database');
-const { initRedis } = require('./services/redis');
+const database = require('./services/database');
+const redisService = require('./services/redis');
 const { initSentry, initSentryErrorHandler } = require('./services/sentry');
 
 // Import routes
@@ -170,16 +170,16 @@ app.use((err, req, res, next) => {
 async function startServer() {
     try {
         // Initialize database
-        await initDatabase();
+        await database.initDatabase();
         logger.info('Database connected');
 
         // Initialize Redis
-        await initRedis();
+        await redisService.initRedis();
         logger.info('Redis connected');
 
         // Start HTTP server
         const PORT = config.port || 3000;
-        app.listen(PORT, '0.0.0.0', () => {
+        server = app.listen(PORT, '0.0.0.0', () => {
             logger.info(`Streaming API server running on port ${PORT}`);
             logger.info(`Environment: ${config.nodeEnv}`);
         });
@@ -190,16 +190,42 @@ async function startServer() {
     }
 }
 
-// Handle graceful shutdown
-process.on('SIGTERM', async () => {
-    logger.info('SIGTERM received, shutting down gracefully');
-    process.exit(0);
-});
+// Server reference for graceful shutdown
+let server = null;
 
-process.on('SIGINT', async () => {
-    logger.info('SIGINT received, shutting down gracefully');
-    process.exit(0);
-});
+// Handle graceful shutdown
+async function gracefulShutdown(signal) {
+    logger.info(`${signal} received, shutting down gracefully`);
+
+    const forceTimeout = setTimeout(() => {
+        logger.error('Forced shutdown after timeout');
+        process.exit(1);
+    }, 30000);
+
+    try {
+        // 1. Stop accepting new connections
+        if (server) {
+            await new Promise((resolve) => server.close(resolve));
+            logger.info('HTTP server closed');
+        }
+
+        // 2. Close Redis
+        await redisService.disconnect();
+
+        // 3. Close database pool
+        await database.close();
+
+        clearTimeout(forceTimeout);
+        process.exit(0);
+    } catch (error) {
+        logger.error('Error during shutdown:', error);
+        clearTimeout(forceTimeout);
+        process.exit(1);
+    }
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Start the server
 startServer();

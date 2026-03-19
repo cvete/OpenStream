@@ -30,36 +30,33 @@ router.post('/publish', verifyWebhookSignature, async (req, res) => {
 
         logger.info(`Publish hook: ${stream} from ${ip}`);
 
-        // Validate stream key exists and is active
+        // Atomically validate and set stream live (prevents race conditions)
         const result = await db.query(
-            `SELECT * FROM streams WHERE stream_key = $1 AND is_active = true`,
-            [stream]
-        );
-
-        if (result.rows.length === 0) {
-            logger.warn(`Publish rejected: Unknown stream key ${stream}`);
-            // Return error to reject the stream
-            return res.status(403).json({ code: 1, message: 'Invalid stream key' });
-        }
-
-        const streamData = result.rows[0];
-
-        // Check if stream is already live (prevent duplicate publishing)
-        if (streamData.status === 'live') {
-            logger.warn(`Publish rejected: Stream ${stream} is already live`);
-            return res.status(403).json({ code: 1, message: 'Stream is already live' });
-        }
-
-        // Update stream status to live
-        await db.query(
             `UPDATE streams SET
                 status = 'live',
                 started_at = NOW(),
                 ended_at = NULL,
                 current_viewers = 0
-             WHERE id = $1`,
-            [streamData.id]
+             WHERE stream_key = $1 AND is_active = true AND status != 'live'
+             RETURNING *`,
+            [stream]
         );
+
+        if (result.rows.length === 0) {
+            // Determine why it failed
+            const check = await db.query(
+                'SELECT id, status, is_active FROM streams WHERE stream_key = $1',
+                [stream]
+            );
+            if (check.rows.length === 0 || !check.rows[0].is_active) {
+                logger.warn(`Publish rejected: Unknown stream key ${stream}`);
+                return res.status(403).json({ code: 1, message: 'Invalid stream key' });
+            }
+            logger.warn(`Publish rejected: Stream ${stream} is already live`);
+            return res.status(403).json({ code: 1, message: 'Stream is already live' });
+        }
+
+        const streamData = result.rows[0];
 
         // Store in Redis for quick access
         await redis.setStreamLive(stream, {
@@ -187,7 +184,7 @@ router.post('/play', verifyWebhookSignature, async (req, res) => {
 
     } catch (error) {
         logger.error('Play hook error:', error);
-        res.json({ code: 0 }); // Allow playback on error
+        res.status(500).json({ code: 1, message: 'Internal error' });
     }
 });
 
@@ -268,7 +265,7 @@ router.post('/dvr', verifyWebhookSignature, async (req, res) => {
 
     } catch (error) {
         logger.error('DVR hook error:', error);
-        res.json({ code: 0 });
+        res.status(500).json({ code: 1, message: 'Recording failed' });
     }
 });
 

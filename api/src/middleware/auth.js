@@ -3,13 +3,15 @@
  */
 
 const jwt = require('jsonwebtoken');
+const { v4: uuidv4 } = require('uuid');
 const config = require('../config');
 const logger = require('../services/logger');
+const redis = require('../services/redis');
 
 /**
  * Verify JWT token middleware
  */
-function verifyToken(req, res, next) {
+async function verifyToken(req, res, next) {
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
@@ -35,6 +37,18 @@ function verifyToken(req, res, next) {
             issuer: 'openstream-api',
             maxAge: '24h'
         });
+
+        // Check if token has been revoked (degrades gracefully if Redis is down)
+        if (decoded.jti) {
+            const blacklisted = await redis.isTokenBlacklisted(decoded.jti);
+            if (blacklisted) {
+                return res.status(401).json({
+                    error: 'Unauthorized',
+                    message: 'Token has been revoked'
+                });
+            }
+        }
+
         req.user = decoded;
         next();
     } catch (error) {
@@ -144,7 +158,8 @@ function generateToken(user) {
             id: user.id,
             username: user.username,
             email: user.email,
-            role: user.role
+            role: user.role,
+            jti: uuidv4()
         },
         config.jwt.secret,
         {

@@ -7,6 +7,7 @@ const bcrypt = require('bcrypt');
 const router = express.Router();
 
 const db = require('../services/database');
+const redis = require('../services/redis');
 const logger = require('../services/logger');
 const auditLogger = require('../services/auditLogger');
 const config = require('../config');
@@ -43,6 +44,16 @@ router.post('/login',
                 });
             }
 
+        // Check account lockout (degrades gracefully if Redis is down)
+        const attempts = await redis.getLoginAttempts(username);
+        if (attempts >= config.security.maxLoginAttempts) {
+            logger.warn(`Account locked out: ${username} (${attempts} failed attempts)`);
+            return res.status(429).json({
+                error: 'Too Many Requests',
+                message: 'Account temporarily locked due to too many failed login attempts. Try again later.'
+            });
+        }
+
         // Find user
         const result = await db.query(
             `SELECT * FROM users WHERE username = $1 AND is_active = true`,
@@ -50,6 +61,7 @@ router.post('/login',
         );
 
         if (result.rows.length === 0) {
+            await redis.incrementLoginAttempts(username);
             return res.status(401).json({
                 error: 'Unauthorized',
                 message: 'Invalid credentials'
@@ -61,11 +73,15 @@ router.post('/login',
         // Verify password
         const isValid = await bcrypt.compare(password, user.password_hash);
         if (!isValid) {
+            await redis.incrementLoginAttempts(username);
             return res.status(401).json({
                 error: 'Unauthorized',
                 message: 'Invalid credentials'
             });
         }
+
+        // Clear lockout counter on successful login
+        await redis.clearLoginAttempts(username);
 
         // Update last login
         await db.query(
@@ -261,6 +277,34 @@ router.put('/password', verifyToken, [
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Password change failed'
+        });
+    }
+});
+
+/**
+ * POST /api/auth/logout
+ * Revoke current access token
+ */
+router.post('/logout', verifyToken, async (req, res) => {
+    try {
+        if (req.user.jti) {
+            // Calculate remaining TTL from token expiry
+            const expiresAt = req.user.exp;
+            const now = Math.floor(Date.now() / 1000);
+            const ttl = Math.max(expiresAt - now, 0);
+
+            if (ttl > 0) {
+                await redis.blacklistToken(req.user.jti, ttl);
+            }
+        }
+
+        logger.info(`User ${req.user.username} logged out`);
+        res.json({ message: 'Logged out successfully' });
+    } catch (error) {
+        logger.error('Logout error:', error);
+        res.status(500).json({
+            error: 'Internal Server Error',
+            message: 'Logout failed'
         });
     }
 });

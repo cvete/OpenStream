@@ -199,6 +199,17 @@ async function transaction(callback) {
     }
 }
 
+/**
+ * Close the database connection pool
+ */
+async function close() {
+    if (pool) {
+        await pool.end();
+        pool = null;
+        logger.info('Database pool closed');
+    }
+}
+
 module.exports = {
     initDatabase,
     getPool,
@@ -206,5 +217,6 @@ module.exports = {
     getClient,
     transaction,
     getQueryMetrics,
+    close,
     pool
 };

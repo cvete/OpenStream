@@ -36,15 +36,17 @@ const logger = winston.createLogger({
 
 // Add file transport in production
 if (config.isProduction) {
+    const logDir = process.env.LOG_DIR || '/var/log/streaming-api';
+
     logger.add(new winston.transports.File({
-        filename: '/var/log/streaming-api/error.log',
+        filename: `${logDir}/error.log`,
         level: 'error',
         maxsize: 5242880, // 5MB
         maxFiles: 5
     }));
 
     logger.add(new winston.transports.File({
-        filename: '/var/log/streaming-api/combined.log',
+        filename: `${logDir}/combined.log`,
         maxsize: 5242880, // 5MB
         maxFiles: 5
     }));

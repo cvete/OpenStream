@@ -1,24 +1,22 @@
-# Node.js API Dockerfile
-FROM node:20-alpine
-
-# Set working directory
+# Stage 1: Build native dependencies
+FROM node:20-alpine AS builder
 WORKDIR /app
-
-# Install dependencies for native modules
 RUN apk add --no-cache python3 make g++
-
-# Copy package files
 COPY package*.json ./
-
-# Install dependencies
 RUN npm ci --only=production
 
-# Copy source code
-COPY src/ ./src/
+# Stage 2: Production runtime (no build tools)
+FROM node:20-alpine
+WORKDIR /app
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001 -G nodejs
+
+# Copy only production dependencies from builder
+COPY --from=builder /app/node_modules ./node_modules
+COPY package*.json ./
+COPY src/ ./src/
 
 # Set ownership
 RUN chown -R nodejs:nodejs /app

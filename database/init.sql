@@ -164,10 +164,8 @@ CREATE INDEX idx_playback_tokens_expires ON playback_tokens(expires_at);
 -- Default data
 -- ============================================
 
--- Default admin user (password: admin123 - CHANGE IN PRODUCTION!)
--- Password hash for 'admin123' using bcrypt
-INSERT INTO users (username, email, password_hash, role) VALUES
-('admin', 'admin@localhost', '$2b$10$rQZ7.HkYz8xvqKL9n0Ke8.8kqmPG6hXYJvGPzqPY8mGqj1gKLvmPi', 'admin');
+-- NOTE: Admin user must be created after deployment using:
+--   npm run create-admin -- --username <user> --email <email> --password <pass>
 
 -- Default global allowed domains
 INSERT INTO global_domains (domain, description) VALUES

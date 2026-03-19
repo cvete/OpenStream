@@ -12,7 +12,8 @@
     "test:coverage": "jest --coverage --runInBand",
     "test:watch": "jest --watch --runInBand",
     "lint": "eslint src/",
-    "migrate": "node src/database/migrate.js"
+    "migrate": "node src/database/migrate.js",
+    "create-admin": "node src/scripts/create-admin.js"
   },
   "dependencies": {
     "@sentry/node": "^10.38.0",

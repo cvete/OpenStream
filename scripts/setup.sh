@@ -173,7 +173,7 @@ if [ ! -f dashboard/dist/index.html ]; then
             <p><code>GET /api/streams</code> - List streams</p>
             <p><code>POST /api/streams</code> - Create stream</p>
             <p style="margin-top: 10px; color: #888;">
-                Default login: <code>admin</code> / <code>admin123</code>
+                Create admin: <code>npm run create-admin</code>
             </p>
         </div>
     </div>
@@ -226,11 +226,8 @@ echo "  - API:           http://localhost/api"
 echo "  - RTMP Ingest:   rtmp://localhost:1935/live/{stream-key}"
 echo "  - HLS Playback:  http://localhost/live/{stream-key}/index.m3u8"
 echo ""
-echo "Default admin credentials:"
-echo "  - Username: admin"
-echo "  - Password: admin123"
-echo ""
-echo -e "${YELLOW}IMPORTANT: Change the default password immediately!${NC}"
+echo -e "${YELLOW}IMPORTANT: Create your admin account:${NC}"
+echo "  docker-compose exec api npm run create-admin -- --username admin --email admin@yourdomain.com --password YOUR_SECURE_PASSWORD"
 echo ""
 echo "To view logs:    docker-compose logs -f"
 echo "To stop:         docker-compose down"
