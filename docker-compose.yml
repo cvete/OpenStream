@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # SRS - RTMP/HLS Media Server
   srs:
@@ -55,6 +53,8 @@ services:
       - TOKEN_SECRET=${TOKEN_SECRET}
       - JWT_SECRET=${JWT_SECRET}
       - SRS_API_URL=http://srs:1985
+      - LOG_DIR=/app/logs
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
     volumes:
       - ./media:/media
     networks:
