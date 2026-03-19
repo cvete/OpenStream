@@ -11,6 +11,7 @@ const logger = require('../services/logger');
 const auditLogger = require('../services/auditLogger');
 const { verifyToken, requireAdmin } = require('../middleware/auth');
 const tokenService = require('../services/tokenService');
+const { body, validationResult } = require('express-validator');
 const {
     handleValidationErrors,
     validatePagination,
