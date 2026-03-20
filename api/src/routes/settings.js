@@ -46,6 +46,58 @@ router.get('/', verifyToken, async (req, res) => {
 });
 
 /**
+ * GET /api/config/server
+ * Get server configuration and status
+ */
+router.get('/server', verifyToken, async (req, res) => {
+    try {
+        // Check Redis connection
+        let redisStatus = 'disconnected';
+        try {
+            await redis.client.ping();
+            redisStatus = 'connected';
+        } catch (redisError) {
+            logger.debug('Redis ping failed:', redisError.message);
+        }
+
+        // Check database connection
+        let dbStatus = 'disconnected';
+        try {
+            await db.query('SELECT 1');
+            dbStatus = 'connected';
+        } catch (dbError) {
+            logger.debug('Database ping failed:', dbError.message);
+        }
+
+        // Get system info
+        const uptime = process.uptime();
+        const memoryUsage = process.memoryUsage();
+
+        res.json({
+            status: 'online',
+            redis_status: redisStatus,
+            db_status: dbStatus,
+            version: process.env.npm_package_version || '1.0.0',
+            node_version: process.version,
+            uptime_seconds: Math.floor(uptime),
+            memory_usage: {
+                rss: Math.round(memoryUsage.rss / 1024 / 1024) + ' MB',
+                heap_used: Math.round(memoryUsage.heapUsed / 1024 / 1024) + ' MB',
+                heap_total: Math.round(memoryUsage.heapTotal / 1024 / 1024) + ' MB'
+            },
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        logger.error('Error getting server config:', error);
+        res.status(500).json({
+            error: 'Internal Server Error',
+            message: 'Failed to get server configuration'
+        });
+    }
+});
+
+/**
  * GET /api/settings/:key
  * Get specific setting
  */
@@ -141,58 +193,6 @@ router.put('/:key', verifyToken, requireAdmin, [
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to update setting'
-        });
-    }
-});
-
-/**
- * GET /api/config/server
- * Get server configuration and status
- */
-router.get('/config/server', verifyToken, async (req, res) => {
-    try {
-        // Check Redis connection
-        let redisStatus = 'disconnected';
-        try {
-            await redis.client.ping();
-            redisStatus = 'connected';
-        } catch (redisError) {
-            logger.debug('Redis ping failed:', redisError.message);
-        }
-
-        // Check database connection
-        let dbStatus = 'disconnected';
-        try {
-            await db.query('SELECT 1');
-            dbStatus = 'connected';
-        } catch (dbError) {
-            logger.debug('Database ping failed:', dbError.message);
-        }
-
-        // Get system info
-        const uptime = process.uptime();
-        const memoryUsage = process.memoryUsage();
-
-        res.json({
-            status: 'online',
-            redis_status: redisStatus,
-            db_status: dbStatus,
-            version: process.env.npm_package_version || '1.0.0',
-            node_version: process.version,
-            uptime_seconds: Math.floor(uptime),
-            memory_usage: {
-                rss: Math.round(memoryUsage.rss / 1024 / 1024) + ' MB',
-                heap_used: Math.round(memoryUsage.heapUsed / 1024 / 1024) + ' MB',
-                heap_total: Math.round(memoryUsage.heapTotal / 1024 / 1024) + ' MB'
-            },
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        logger.error('Error getting server config:', error);
-        res.status(500).json({
-            error: 'Internal Server Error',
-            message: 'Failed to get server configuration'
         });
     }
 });
