@@ -55,6 +55,7 @@ services:
       - SRS_API_URL=http://srs:1985
       - LOG_DIR=/app/logs
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
+      - SRS_WEBHOOK_IP_WHITELIST=${SRS_WEBHOOK_IP_WHITELIST:-127.0.0.1,::1,::ffff:127.0.0.1,172.16.0.0/12}
     volumes:
       - ./media:/media
     networks:
