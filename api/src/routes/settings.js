@@ -54,8 +54,11 @@ router.get('/server', verifyToken, async (req, res) => {
         // Check Redis connection
         let redisStatus = 'disconnected';
         try {
-            await redis.client.ping();
-            redisStatus = 'connected';
+            const redisClient = redis.getClient();
+            if (redisClient) {
+                await redisClient.ping();
+                redisStatus = 'connected';
+            }
         } catch (redisError) {
             logger.debug('Redis ping failed:', redisError.message);
         }
