@@ -674,6 +674,7 @@
                                 <th>Status</th>
                                 <th>Viewers</th>
                                 <th>Started</th>
+                                <th>Links</th>
                             </tr>
                         </thead>
                         <tbody id="live-streams-table">
@@ -1340,6 +1341,7 @@
                 const data = await api('/streams/status/live');
                 const tbody = document.getElementById('live-streams-table');
 
+                const baseUrl = window.location.origin;
                 if (data.streams && data.streams.length > 0) {
                     tbody.innerHTML = data.streams.map(stream => `
                         <tr>
@@ -1347,10 +1349,26 @@
                             <td><span class="badge live">LIVE</span></td>
                             <td>${stream.current_viewers || 0}</td>
                             <td>${formatDate(stream.started_at)}</td>
+                            <td style="font-size: 0.85rem;">
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <span style="color: var(--text-secondary);">HLS:</span>
+                                        <input type="text" value="${baseUrl}/live/${stream.stream_key}/index.m3u8" readonly
+                                            style="background: var(--bg-tertiary); border: none; color: var(--text-primary); padding: 4px 8px; border-radius: 4px; flex: 1; font-size: 0.8rem; min-width: 200px;"
+                                            onclick="this.select(); document.execCommand('copy'); showToast('HLS URL copied!');">
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <span style="color: var(--text-secondary);">Embed:</span>
+                                        <input type="text" value="${baseUrl}/embed/${stream.stream_key}" readonly
+                                            style="background: var(--bg-tertiary); border: none; color: var(--text-primary); padding: 4px 8px; border-radius: 4px; flex: 1; font-size: 0.8rem; min-width: 200px;"
+                                            onclick="this.select(); document.execCommand('copy'); showToast('Embed URL copied!');">
+                                    </div>
+                                </div>
+                            </td>
                         </tr>
                     `).join('');
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">No active streams</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">No active streams</td></tr>';
                 }
             } catch (error) {
                 console.error('Failed to load streams:', error);
