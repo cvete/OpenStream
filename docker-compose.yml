@@ -9,7 +9,7 @@ services:
       - "1985:1985"   # API
       - "8080:8080"   # HTTP Server (internal HLS)
     volumes:
-      - ./srs/srs.conf:/usr/local/srs/conf/srs.conf
+      - ./srs/srs.conf:/usr/local/srs/conf/docker.conf
       - ./media:/media
     networks:
       - streaming-network
