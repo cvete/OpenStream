@@ -1169,6 +1169,73 @@
         </div>
     </div>
 
+    <!-- Watch Stream Modal -->
+    <div class="modal-overlay" id="watch-stream-modal">
+        <div class="modal" style="max-width: 900px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 id="watch-stream-title" style="margin: 0;">Watch Stream</h3>
+                <button class="btn btn-secondary btn-sm" onclick="closeWatchModal()">Close</button>
+            </div>
+            <div style="position: relative; width: 100%; padding-top: 56.25%; background: #000; border-radius: 8px; overflow: hidden;">
+                <iframe id="watch-stream-iframe" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;" src=""></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- Monitor Stream Modal -->
+    <div class="modal-overlay" id="monitor-stream-modal">
+        <div class="modal" style="max-width: 700px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 id="monitor-stream-title" style="margin: 0;">Stream Health</h3>
+                <button class="btn btn-secondary btn-sm" onclick="closeMonitorModal()">Close</button>
+            </div>
+            <div id="monitor-stream-content">
+                <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px;">
+                    <div class="stat-card" style="padding: 12px;">
+                        <div class="label" style="font-size: 0.75rem;">Status</div>
+                        <div class="value" id="monitor-status" style="font-size: 1.2rem;">--</div>
+                    </div>
+                    <div class="stat-card" style="padding: 12px;">
+                        <div class="label" style="font-size: 0.75rem;">Viewers</div>
+                        <div class="value" id="monitor-viewers" style="font-size: 1.2rem;">0</div>
+                    </div>
+                    <div class="stat-card" style="padding: 12px;">
+                        <div class="label" style="font-size: 0.75rem;">Peak Viewers</div>
+                        <div class="value" id="monitor-peak" style="font-size: 1.2rem;">0</div>
+                    </div>
+                </div>
+                <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px;">
+                    <div class="stat-card" style="padding: 12px;">
+                        <div class="label" style="font-size: 0.75rem;">Bitrate (kbps)</div>
+                        <div class="value" id="monitor-bitrate" style="font-size: 1.2rem;">--</div>
+                    </div>
+                    <div class="stat-card" style="padding: 12px;">
+                        <div class="label" style="font-size: 0.75rem;">Resolution</div>
+                        <div class="value" id="monitor-resolution" style="font-size: 1.2rem;">--</div>
+                    </div>
+                    <div class="stat-card" style="padding: 12px;">
+                        <div class="label" style="font-size: 0.75rem;">FPS</div>
+                        <div class="value" id="monitor-fps" style="font-size: 1.2rem;">--</div>
+                    </div>
+                </div>
+                <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px;">
+                    <div class="stat-card" style="padding: 12px;">
+                        <div class="label" style="font-size: 0.75rem;">Bandwidth In</div>
+                        <div class="value" id="monitor-bw-in" style="font-size: 1.2rem;">--</div>
+                    </div>
+                    <div class="stat-card" style="padding: 12px;">
+                        <div class="label" style="font-size: 0.75rem;">Bandwidth Out</div>
+                        <div class="value" id="monitor-bw-out" style="font-size: 1.2rem;">--</div>
+                    </div>
+                </div>
+                <div class="stat-card" style="padding: 12px;">
+                    <div class="label" style="font-size: 0.75rem; margin-bottom: 8px;">Uptime</div>
+                    <div class="value" id="monitor-uptime" style="font-size: 1.2rem;">--</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Container -->
     <div class="toast-container" id="toast-container"></div>
 
@@ -1390,6 +1457,8 @@
                             <td>${stream.total_views || 0}</td>
                             <td>
                                 <div class="action-buttons">
+                                    ${stream.status === 'live' ? `<button class="btn btn-sm" style="background: var(--success); color: white;" onclick="openWatchStream('${stream.stream_key}', '${escapeHtml(stream.name)}')">Watch</button>` : ''}
+                                    ${stream.status === 'live' ? `<button class="btn btn-sm" style="background: var(--warning); color: white;" onclick="openMonitorStream('${stream.id}', '${stream.stream_key}', '${escapeHtml(stream.name)}', '${stream.started_at || ''}')">Monitor</button>` : ''}
                                     <button class="btn btn-secondary btn-sm" onclick="copyStreamKey('${stream.stream_key}')">Copy Key</button>
                                     <button class="btn btn-secondary btn-sm" onclick="openEditStream('${stream.id}', '${escapeHtml(stream.name)}', '${escapeHtml(stream.description || '')}')">Edit</button>
                                     ${stream.status === 'live' ? `<button class="btn btn-danger btn-sm" onclick="confirmStopStream('${stream.id}', '${escapeHtml(stream.name)}')">Stop</button>` : ''}
@@ -1703,6 +1772,93 @@
 
         function openAddDomainModal() {
             openModal('add-domain-modal');
+        }
+
+        // Watch Stream
+        function openWatchStream(streamKey, name) {
+            document.getElementById('watch-stream-title').textContent = 'Watch: ' + name;
+            document.getElementById('watch-stream-iframe').src = '/embed/' + streamKey;
+            openModal('watch-stream-modal');
+        }
+
+        function closeWatchModal() {
+            document.getElementById('watch-stream-iframe').src = '';
+            closeModal('watch-stream-modal');
+        }
+
+        // Monitor Stream
+        let monitorInterval = null;
+
+        function openMonitorStream(streamId, streamKey, name, startedAt) {
+            document.getElementById('monitor-stream-title').textContent = 'Health: ' + name;
+            updateMonitorData(streamId, streamKey, startedAt);
+            monitorInterval = setInterval(() => updateMonitorData(streamId, streamKey, startedAt), 5000);
+            openModal('monitor-stream-modal');
+        }
+
+        function closeMonitorModal() {
+            if (monitorInterval) {
+                clearInterval(monitorInterval);
+                monitorInterval = null;
+            }
+            closeModal('monitor-stream-modal');
+        }
+
+        async function updateMonitorData(streamId, streamKey, startedAt) {
+            try {
+                // Fetch stream stats and SRS data in parallel
+                const [statsData, srsData] = await Promise.all([
+                    api('/streams/' + streamId + '/stats?period=1h'),
+                    api('/stats/server')
+                ]);
+
+                // Viewers
+                document.getElementById('monitor-status').innerHTML = '<span style="color: var(--success);">LIVE</span>';
+                document.getElementById('monitor-viewers').textContent = statsData.current_viewers || 0;
+                document.getElementById('monitor-peak').textContent = statsData.peak_viewers || 0;
+
+                // Get stream info from SRS
+                const srs = srsData.srs?.data;
+                if (srs) {
+                    const bwIn = srs.self?.srs_recv_bytes || srs.system?.net_recv_bytes || 0;
+                    const bwOut = srs.self?.srs_send_bytes || srs.system?.net_send_bytes || 0;
+                    document.getElementById('monitor-bw-in').textContent = formatBytes(bwIn);
+                    document.getElementById('monitor-bw-out').textContent = formatBytes(bwOut);
+                }
+
+                // Get latest stats from history
+                if (statsData.history && statsData.history.length > 0) {
+                    const latest = statsData.history[statsData.history.length - 1];
+                    document.getElementById('monitor-bitrate').textContent = latest.bitrate ? Math.round(latest.bitrate) : '--';
+                    document.getElementById('monitor-resolution').textContent = (latest.width && latest.height) ? latest.width + 'x' + latest.height : '--';
+                    document.getElementById('monitor-fps').textContent = latest.fps ? parseFloat(latest.fps).toFixed(1) : '--';
+                } else {
+                    document.getElementById('monitor-bitrate').textContent = '--';
+                    document.getElementById('monitor-resolution').textContent = '--';
+                    document.getElementById('monitor-fps').textContent = '--';
+                }
+
+                // Uptime
+                if (startedAt) {
+                    const elapsed = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000);
+                    const hours = Math.floor(elapsed / 3600);
+                    const mins = Math.floor((elapsed % 3600) / 60);
+                    const secs = elapsed % 60;
+                    document.getElementById('monitor-uptime').textContent =
+                        (hours > 0 ? hours + 'h ' : '') + mins + 'm ' + secs + 's';
+                }
+            } catch (error) {
+                console.error('Failed to update monitor:', error);
+                document.getElementById('monitor-status').innerHTML = '<span style="color: var(--danger);">ERROR</span>';
+            }
+        }
+
+        function formatBytes(bytes) {
+            if (!bytes || bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
         }
 
         // Utils
