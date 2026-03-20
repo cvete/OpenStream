@@ -36,7 +36,9 @@ async function startRestream(streamId, streamKey, sourceUrl) {
         '-hide_banner',
         '-loglevel', 'info',
         ...(isHls ? [
-            // HLS-specific: rw_timeout for segment downloads, live mode for live HLS
+            // HLS: -re throttles to realtime (no effect on live HLS, prevents
+            // VOD HLS from being read at max speed and finishing in seconds)
+            '-re',
             '-rw_timeout', '15000000',
             '-multiple_requests', '1',
         ] : [
