@@ -96,7 +96,7 @@ router.get('/:streamKey/token', async (req, res) => {
         res.json({
             token: tokenData.token,
             expires: tokenData.expires,
-            playbackUrl: `/live/${streamKey}/index.m3u8?token=${tokenData.token}&expires=${tokenData.expires}`
+            playbackUrl: `/live/${streamKey}.m3u8?token=${tokenData.token}&expires=${tokenData.expires}`
         });
 
     } catch (error) {
@@ -109,7 +109,7 @@ router.get('/:streamKey/token', async (req, res) => {
  * Render the player HTML page
  */
 function renderPlayerPage(stream, streamKey, tokenData) {
-    const playbackUrl = `/live/${streamKey}/index.m3u8?token=${tokenData.token}&expires=${tokenData.expires}`;
+    const playbackUrl = `/live/${streamKey}.m3u8?token=${tokenData.token}&expires=${tokenData.expires}`;
 
     return `<!DOCTYPE html>
 <html lang="en">
