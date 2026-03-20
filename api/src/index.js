@@ -27,6 +27,7 @@ const embedRoutes = require('./routes/embed');
 const domainsRoutes = require('./routes/domains');
 const settingsRoutes = require('./routes/settings');
 const auditRoutes = require('./routes/audit');
+const transcodingRoutes = require('./routes/transcoding');
 
 const app = express();
 
@@ -144,6 +145,7 @@ app.use('/api/domains', domainsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/config', settingsRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/transcoding', transcodingRoutes);
 app.use('/embed', embedRoutes);
 
 // 404 handler
@@ -182,6 +184,10 @@ async function startServer() {
         const restreamManager = require('./services/restreamManager');
         await restreamManager.recoverRestreams();
 
+        // Recover any transcoding sessions that were running before restart
+        const transcoderManager = require('./services/transcoderManager');
+        await transcoderManager.recoverTranscoding();
+
         // Start HTTP server
         const PORT = config.port || 3000;
         server = app.listen(PORT, '0.0.0.0', () => {
@@ -218,6 +224,11 @@ async function gracefulShutdown(signal) {
         const restreamManager = require('./services/restreamManager');
         await restreamManager.cleanup();
         logger.info('Restream processes stopped');
+
+        // 2b. Stop all transcoding processes
+        const transcoderManager = require('./services/transcoderManager');
+        await transcoderManager.cleanup();
+        logger.info('Transcoding processes stopped');
 
         // 3. Close Redis
         await redisService.disconnect();

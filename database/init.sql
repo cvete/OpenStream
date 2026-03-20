@@ -40,8 +40,42 @@ CREATE TABLE streams (
     restream_source_url TEXT,
     restream_status VARCHAR(20) DEFAULT NULL CHECK (restream_status IN (NULL, 'pulling', 'stopped', 'error')),
     restream_error TEXT,
+    transcoding_status VARCHAR(20) DEFAULT NULL CHECK (transcoding_status IN (NULL, 'active', 'stopped', 'error')),
+    transcoding_error TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- ============================================
+-- Transcoding profiles (quality presets)
+-- ============================================
+CREATE TABLE transcoding_profiles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(50) UNIQUE NOT NULL,
+    display_name VARCHAR(100) NOT NULL,
+    width INTEGER NOT NULL,
+    height INTEGER NOT NULL,
+    video_bitrate INTEGER NOT NULL,
+    audio_bitrate INTEGER NOT NULL DEFAULT 128,
+    fps INTEGER NOT NULL DEFAULT 30,
+    video_codec VARCHAR(20) DEFAULT 'libx264',
+    video_profile VARCHAR(20) DEFAULT 'main',
+    preset VARCHAR(20) DEFAULT 'medium',
+    sort_order INTEGER DEFAULT 0,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- ============================================
+-- Per-stream transcoding profile assignments
+-- ============================================
+CREATE TABLE stream_transcoding_profiles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    stream_id UUID REFERENCES streams(id) ON DELETE CASCADE,
+    profile_id UUID REFERENCES transcoding_profiles(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(stream_id, profile_id)
 );
 
 -- ============================================
@@ -179,6 +213,8 @@ CREATE INDEX idx_playback_tokens_expires ON playback_tokens(expires_at);
 CREATE INDEX idx_audit_logs_user_id ON audit_logs(user_id);
 CREATE INDEX idx_audit_logs_action ON audit_logs(action);
 CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
+CREATE INDEX idx_transcoding_profiles_active ON transcoding_profiles(is_active);
+CREATE INDEX idx_stream_tc_profiles_stream ON stream_transcoding_profiles(stream_id);
 
 -- ============================================
 -- Default data
@@ -198,12 +234,21 @@ INSERT INTO settings (key, value, description) VALUES
 ('max_viewers_per_stream', '5000', 'Maximum concurrent viewers per stream'),
 ('recording_enabled', 'true', 'Enable automatic recording'),
 ('transcoding_enabled', 'false', 'Enable ABR transcoding'),
+('max_concurrent_transcodes', '5', 'Max streams transcoding simultaneously'),
+('default_transcoding_profiles', '720p,480p,360p', 'Default profiles for new streams'),
 ('hotlink_protection', 'true', 'Enable hotlink protection'),
 ('domain_protection', 'true', 'Enable domain whitelist protection');
 
 -- ============================================
 -- Functions and Triggers
 -- ============================================
+
+-- Default transcoding profiles
+INSERT INTO transcoding_profiles (name, display_name, width, height, video_bitrate, audio_bitrate, fps, video_profile, preset, sort_order) VALUES
+('1080p', '1080p Full HD', 1920, 1080, 4500, 128, 30, 'high', 'medium', 1),
+('720p',  '720p HD',       1280, 720,  2500, 128, 30, 'main', 'medium', 2),
+('480p',  '480p SD',       854,  480,  1200, 96,  30, 'main', 'fast',   3),
+('360p',  '360p Low',      640,  360,  600,  64,  25, 'baseline', 'fast', 4);
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -222,6 +267,9 @@ CREATE TRIGGER update_streams_updated_at BEFORE UPDATE ON streams
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_recordings_updated_at BEFORE UPDATE ON recordings
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_transcoding_profiles_updated_at BEFORE UPDATE ON transcoding_profiles
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Function to clean up expired tokens (run periodically)

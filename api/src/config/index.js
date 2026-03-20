@@ -122,6 +122,17 @@ module.exports = {
         playlistSize: 6 // segments
     },
 
+    // Transcoding
+    transcoding: {
+        maxConcurrent: parseInt(process.env.MAX_CONCURRENT_TRANSCODES) || 5,
+        srsRtmpUrl: process.env.SRS_RTMP_URL || 'rtmp://srs:1935',
+        masterPlaylistDir: process.env.MEDIA_LIVE_PATH || '/media/live',
+        defaultProfiles: (process.env.DEFAULT_TRANSCODING_PROFILES || '720p,480p,360p').split(','),
+        retryAttempts: 3,
+        retryDelays: [10000, 30000, 60000],
+        gracefulStopTimeout: 5000
+    },
+
     // CORS Configuration
     cors: {
         allowedOrigins: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : []

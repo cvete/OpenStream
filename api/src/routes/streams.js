@@ -12,6 +12,7 @@ const auditLogger = require('../services/auditLogger');
 const { verifyToken, requireAdmin } = require('../middleware/auth');
 const tokenService = require('../services/tokenService');
 const restreamManager = require('../services/restreamManager');
+const transcoderManager = require('../services/transcoderManager');
 const { body, validationResult } = require('express-validator');
 const {
     handleValidationErrors,
@@ -623,6 +624,127 @@ router.get('/:id/restream/status', verifyToken, async (req, res) => {
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to get restream status'
+        });
+    }
+});
+
+// ============================================
+// Transcoding Endpoints
+// ============================================
+
+/**
+ * POST /api/streams/:id/transcoding/start
+ * Start ABR transcoding for a stream
+ */
+router.post('/:id/transcoding/start', verifyToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { profiles } = req.body;
+
+        const streamResult = await db.query(
+            `SELECT id, stream_key, status, is_transcoding_enabled, transcoding_status
+             FROM streams WHERE (id::text = $1 OR stream_key = $1) AND is_active = true`,
+            [id]
+        );
+
+        if (streamResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Not Found', message: 'Stream not found' });
+        }
+
+        const stream = streamResult.rows[0];
+
+        if (stream.status !== 'live') {
+            return res.status(400).json({ error: 'Bad Request', message: 'Stream must be live to start transcoding' });
+        }
+
+        if (stream.transcoding_status === 'active') {
+            return res.status(400).json({ error: 'Bad Request', message: 'Transcoding already active' });
+        }
+
+        const result = await transcoderManager.startTranscoding(stream.id, stream.stream_key, profiles);
+
+        logger.info(`Transcoding started: ${stream.stream_key} by ${req.user.username}`);
+
+        res.json({
+            message: 'Transcoding started',
+            ...result
+        });
+
+    } catch (error) {
+        logger.error('Error starting transcoding:', error);
+        res.status(500).json({
+            error: 'Internal Server Error',
+            message: error.message || 'Failed to start transcoding'
+        });
+    }
+});
+
+/**
+ * POST /api/streams/:id/transcoding/stop
+ * Stop ABR transcoding for a stream
+ */
+router.post('/:id/transcoding/stop', verifyToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const streamResult = await db.query(
+            `SELECT id, stream_key FROM streams WHERE (id::text = $1 OR stream_key = $1) AND is_active = true`,
+            [id]
+        );
+
+        if (streamResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Not Found', message: 'Stream not found' });
+        }
+
+        await transcoderManager.stopTranscoding(streamResult.rows[0].id);
+
+        logger.info(`Transcoding stopped: ${streamResult.rows[0].stream_key} by ${req.user.username}`);
+
+        res.json({ message: 'Transcoding stopped' });
+
+    } catch (error) {
+        logger.error('Error stopping transcoding:', error);
+        res.status(500).json({
+            error: 'Internal Server Error',
+            message: 'Failed to stop transcoding'
+        });
+    }
+});
+
+/**
+ * GET /api/streams/:id/transcoding/status
+ * Get transcoding status for a stream
+ */
+router.get('/:id/transcoding/status', verifyToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const streamResult = await db.query(
+            `SELECT id, stream_key, is_transcoding_enabled, transcoding_status, transcoding_error
+             FROM streams WHERE (id::text = $1 OR stream_key = $1) AND is_active = true`,
+            [id]
+        );
+
+        if (streamResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Not Found', message: 'Stream not found' });
+        }
+
+        const stream = streamResult.rows[0];
+        const processStatus = transcoderManager.getStatus(stream.id);
+
+        res.json({
+            stream_key: stream.stream_key,
+            is_transcoding_enabled: stream.is_transcoding_enabled,
+            status: stream.transcoding_status,
+            error: stream.transcoding_error,
+            process: processStatus
+        });
+
+    } catch (error) {
+        logger.error('Error getting transcoding status:', error);
+        res.status(500).json({
+            error: 'Internal Server Error',
+            message: 'Failed to get transcoding status'
         });
     }
 });

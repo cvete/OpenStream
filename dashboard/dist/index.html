@@ -596,6 +596,95 @@
         .toast-close:hover {
             color: var(--text-primary);
         }
+
+        /* Transcoding badges */
+        .badge.transcoding {
+            background: rgba(168, 85, 247, 0.2);
+            color: #a855f7;
+        }
+        .badge.transcoding::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: #a855f7;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .badge.pulling {
+            background: rgba(59, 130, 246, 0.2);
+            color: var(--accent);
+        }
+        .badge.pulling::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--accent);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        /* Profile chips */
+        .profile-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-right: 4px;
+            margin-bottom: 2px;
+        }
+        .profile-chip.active { background: rgba(34, 197, 94, 0.2); color: var(--success); }
+        .profile-chip.error { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+        .profile-chip.default { background: rgba(168, 85, 247, 0.15); color: #a855f7; }
+
+        /* Capacity bar */
+        .capacity-bar {
+            height: 8px;
+            border-radius: 4px;
+            background: var(--bg-tertiary);
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        .capacity-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s;
+        }
+
+        /* Checkbox list for profiles */
+        .profile-checkbox-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .profile-checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--bg-tertiary);
+            cursor: pointer;
+        }
+        .profile-checkbox-item:hover {
+            background: var(--bg-tertiary);
+        }
+        .profile-checkbox-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--accent);
+        }
+        .profile-checkbox-item .profile-details {
+            flex: 1;
+        }
+        .profile-checkbox-item .profile-name {
+            font-weight: 500;
+        }
+        .profile-checkbox-item .profile-info {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
     </style>
 </head>
 <body>
@@ -628,6 +717,8 @@
                 <div class="nav-item active" data-page="dashboard">📊 Dashboard</div>
                 <div class="nav-item" data-page="analytics">📈 Analytics</div>
                 <div class="nav-item" data-page="streams">📡 Streams</div>
+                <div class="nav-item" data-page="restreams">🔄 Restreams</div>
+                <div class="nav-item" data-page="transcoder">🎛️ Transcoder</div>
                 <div class="nav-item" data-page="vod">🎬 Recordings</div>
                 <div class="nav-item" data-page="monitoring">🛡️ Monitoring</div>
                 <div class="nav-item" data-page="security">🔒 Security</div>
@@ -660,6 +751,14 @@
                     <div class="stat-card">
                         <div class="label">Recordings</div>
                         <div class="value vod" id="stat-vod">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Active Restreams</div>
+                        <div class="value" style="color: var(--accent);" id="stat-restreams">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Active Transcodes</div>
+                        <div class="value" style="color: #a855f7;" id="stat-transcodes">0</div>
                     </div>
                 </div>
 
@@ -754,6 +853,126 @@
                             </tr>
                         </thead>
                         <tbody id="all-streams-table">
+                            <tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Restreams Page -->
+            <div id="page-restreams" class="page hidden">
+                <div class="header">
+                    <h1>Restreams</h1>
+                    <button class="btn btn-primary" onclick="openCreateRestreamModal()">+ New Restream</button>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="label">Active Pulls</div>
+                        <div class="value" style="color: var(--accent);" id="restream-stat-active">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Total Restreams</div>
+                        <div class="value" id="restream-stat-total">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Errors</div>
+                        <div class="value" style="color: var(--danger);" id="restream-stat-errors">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Stopped</div>
+                        <div class="value" style="color: var(--text-secondary);" id="restream-stat-stopped">0</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2>All Restreams</h2>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Source URL</th>
+                                <th>Stream Key</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="restreams-table">
+                            <tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Transcoder Page -->
+            <div id="page-transcoder" class="page hidden">
+                <div class="header">
+                    <h1>Transcoder</h1>
+                    <button class="btn btn-primary" onclick="openManageProfiles()">Manage Profiles</button>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="label">Active Transcodes</div>
+                        <div class="value" style="color: #a855f7;" id="tc-stat-active">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Capacity</div>
+                        <div id="tc-stat-capacity">
+                            <div class="value" style="font-size: 1.2rem;">0 / 5</div>
+                            <div class="capacity-bar">
+                                <div class="capacity-bar-fill" id="tc-capacity-bar" style="width: 0%; background: var(--success);"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Total Profiles</div>
+                        <div class="value" id="tc-stat-profiles">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">FFmpeg Processes</div>
+                        <div class="value" style="color: var(--warning);" id="tc-stat-processes">0</div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom: 20px;">
+                    <div class="card-header">
+                        <h2>Active Transcoding</h2>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Stream</th>
+                                <th>Profiles</th>
+                                <th>Status</th>
+                                <th>Master URL</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="active-transcoding-table">
+                            <tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">No active transcoding sessions</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2>All Streams</h2>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Stream</th>
+                                <th>Status</th>
+                                <th>ABR Enabled</th>
+                                <th>Profiles</th>
+                                <th>Transcoding</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transcoder-streams-table">
                             <tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">Loading...</td></tr>
                         </tbody>
                     </table>
@@ -987,13 +1206,33 @@
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--bg-tertiary);">
                             <div>
-                                <div style="font-weight: 500;">Automatic Transcoding</div>
-                                <div style="color: var(--text-secondary); font-size: 0.875rem;">Auto-transcode recordings to HLS</div>
+                                <div style="font-weight: 500;">Automatic ABR Transcoding</div>
+                                <div style="color: var(--text-secondary); font-size: 0.875rem;">Auto-start ABR transcoding when streams go live</div>
                             </div>
                             <label class="toggle-switch">
                                 <input type="checkbox" id="setting-auto-transcoding">
                                 <span class="toggle-slider"></span>
                             </label>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--bg-tertiary);">
+                            <div>
+                                <div style="font-weight: 500;">Max Concurrent Transcodes</div>
+                                <div style="color: var(--text-secondary); font-size: 0.875rem;">Maximum streams transcoding simultaneously</div>
+                            </div>
+                            <input type="number" id="setting-max-transcodes" min="1" max="20" value="5"
+                                style="width: 70px; padding: 6px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); text-align: center;"
+                                onchange="saveTranscodingSetting('max_concurrent_transcodes', this.value)">
+                        </div>
+                        <div style="padding: 12px 0; border-bottom: 1px solid var(--bg-tertiary);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <div>
+                                    <div style="font-weight: 500;">Default Transcoding Profiles</div>
+                                    <div style="color: var(--text-secondary); font-size: 0.875rem;">Profiles assigned to new streams by default</div>
+                                </div>
+                            </div>
+                            <div id="default-profiles-checkboxes" style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px;">
+                                <!-- Populated by loadSettings -->
+                            </div>
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0;">
                             <div>
@@ -1241,6 +1480,213 @@
         </div>
     </div>
 
+    <!-- Create Restream Modal -->
+    <div class="modal-overlay" id="create-restream-modal">
+        <div class="modal">
+            <h3>Create New Restream</h3>
+            <form id="create-restream-form">
+                <div class="form-group">
+                    <label>Stream Name</label>
+                    <input type="text" id="restream-name" required placeholder="My Restream">
+                </div>
+                <div class="form-group">
+                    <label>Source URL</label>
+                    <input type="url" id="restream-source-url" required placeholder="https://example.com/stream.m3u8">
+                    <small style="color: var(--text-secondary); font-size: 0.8rem;">HLS (.m3u8), MPEG-TS (.ts), or RTMP URL</small>
+                </div>
+                <div class="form-group">
+                    <label>Description (optional)</label>
+                    <input type="text" id="restream-description" placeholder="Stream description...">
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+                    <input type="checkbox" id="restream-auto-start" checked style="width: 18px; height: 18px; accent-color: var(--accent);">
+                    <label for="restream-auto-start" style="margin: 0; cursor: pointer;">Auto-start pulling immediately</label>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('create-restream-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create & Start</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Restream Source Modal -->
+    <div class="modal-overlay" id="edit-restream-modal">
+        <div class="modal">
+            <h3>Edit Restream Source</h3>
+            <form id="edit-restream-form">
+                <input type="hidden" id="edit-restream-id">
+                <div class="form-group">
+                    <label>Stream</label>
+                    <div id="edit-restream-info" style="color: var(--text-secondary); font-size: 0.9rem;"></div>
+                </div>
+                <div class="form-group">
+                    <label>New Source URL</label>
+                    <input type="url" id="edit-restream-source-url" required placeholder="https://example.com/stream.m3u8">
+                </div>
+                <p style="color: var(--warning); font-size: 0.85rem; margin-bottom: 8px;">Changing URL will stop and restart the pull automatically.</p>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('edit-restream-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save & Restart</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Manage Profiles Modal -->
+    <div class="modal-overlay" id="manage-profiles-modal">
+        <div class="modal" style="max-width: 700px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="margin: 0;">Transcoding Profiles</h3>
+                <button class="btn btn-secondary btn-sm" onclick="closeModal('manage-profiles-modal')">Close</button>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Resolution</th>
+                        <th>V.Bitrate</th>
+                        <th>Preset</th>
+                        <th>Active</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="profiles-table">
+                    <tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">Loading...</td></tr>
+                </tbody>
+            </table>
+            <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--bg-tertiary);">
+                <h4 style="margin-bottom: 12px;" id="profile-form-title">Add New Profile</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div class="form-group" style="margin-bottom: 8px;">
+                        <label>Name</label>
+                        <input type="text" id="profile-name" placeholder="e.g. 720p">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 8px;">
+                        <label>Display Name</label>
+                        <input type="text" id="profile-display-name" placeholder="e.g. 720p HD">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 8px;">
+                        <label>Width</label>
+                        <input type="number" id="profile-width" placeholder="1280">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 8px;">
+                        <label>Height</label>
+                        <input type="number" id="profile-height" placeholder="720">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 8px;">
+                        <label>Video Bitrate (kbps)</label>
+                        <input type="number" id="profile-vbitrate" placeholder="2500">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 8px;">
+                        <label>Audio Bitrate (kbps)</label>
+                        <input type="number" id="profile-abitrate" placeholder="128" value="128">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 8px;">
+                        <label>FPS</label>
+                        <input type="number" id="profile-fps" placeholder="30" value="30">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 8px;">
+                        <label>Preset</label>
+                        <select id="profile-preset" style="width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--bg-tertiary); background: var(--bg-primary); color: var(--text-primary);">
+                            <option value="ultrafast">ultrafast</option>
+                            <option value="superfast">superfast</option>
+                            <option value="veryfast">veryfast</option>
+                            <option value="faster">faster</option>
+                            <option value="fast">fast</option>
+                            <option value="medium" selected>medium</option>
+                            <option value="slow">slow</option>
+                        </select>
+                    </div>
+                </div>
+                <input type="hidden" id="profile-edit-id">
+                <div style="display: flex; gap: 8px; margin-top: 8px;">
+                    <button class="btn btn-primary" onclick="saveProfile()">Save Profile</button>
+                    <button class="btn btn-secondary" onclick="resetProfileForm()">Reset</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configure Stream Profiles Modal -->
+    <div class="modal-overlay" id="configure-profiles-modal">
+        <div class="modal">
+            <h3 id="configure-profiles-title">Configure Profiles</h3>
+            <input type="hidden" id="configure-profiles-stream-id">
+            <p style="color: var(--text-secondary); margin-bottom: 12px;">Select quality profiles for ABR transcoding:</p>
+            <div class="profile-checkbox-list" id="configure-profiles-list">
+                Loading...
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--bg-tertiary);">
+                <input type="checkbox" id="configure-use-defaults" style="width: 18px; height: 18px; accent-color: var(--accent);">
+                <label for="configure-use-defaults" style="margin: 0; cursor: pointer;">Use default profiles</label>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('configure-profiles-modal')">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveConfiguredProfiles()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transcoding Monitor Modal -->
+    <div class="modal-overlay" id="transcoding-monitor-modal">
+        <div class="modal" style="max-width: 700px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 id="tc-monitor-title" style="margin: 0;">Transcoding Monitor</h3>
+                <button class="btn btn-secondary btn-sm" onclick="closeTranscodingMonitor()">Close</button>
+            </div>
+            <div id="tc-monitor-content">
+                <div style="margin-bottom: 16px;">
+                    <h4 style="margin-bottom: 8px; color: var(--text-secondary); font-size: 0.875rem;">Source Stream</h4>
+                    <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr); gap: 8px;">
+                        <div class="stat-card" style="padding: 10px;">
+                            <div class="label" style="font-size: 0.7rem;">Bitrate</div>
+                            <div class="value" id="tc-monitor-src-bitrate" style="font-size: 1rem;">--</div>
+                        </div>
+                        <div class="stat-card" style="padding: 10px;">
+                            <div class="label" style="font-size: 0.7rem;">Resolution</div>
+                            <div class="value" id="tc-monitor-src-resolution" style="font-size: 1rem;">--</div>
+                        </div>
+                        <div class="stat-card" style="padding: 10px;">
+                            <div class="label" style="font-size: 0.7rem;">Codec</div>
+                            <div class="value" id="tc-monitor-src-codec" style="font-size: 1rem;">--</div>
+                        </div>
+                        <div class="stat-card" style="padding: 10px;">
+                            <div class="label" style="font-size: 0.7rem;">Uptime</div>
+                            <div class="value" id="tc-monitor-uptime" style="font-size: 1rem;">--</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <h4 style="margin-bottom: 8px; color: var(--text-secondary); font-size: 0.875rem;">Transcoded Renditions</h4>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Quality</th>
+                                <th>Status</th>
+                                <th>Bitrate</th>
+                                <th>Resolution</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tc-monitor-renditions">
+                            <tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.8rem;">Master Playlist URL</label>
+                    <input type="text" id="tc-monitor-master-url" readonly
+                        style="background: var(--bg-tertiary); border: none; color: var(--text-primary); cursor: pointer;"
+                        onclick="this.select(); navigator.clipboard.writeText(this.value); notify.success('Master URL copied!');">
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-success btn-sm" id="tc-monitor-watch-btn" onclick="">Watch ABR</button>
+                    <button class="btn btn-danger btn-sm" id="tc-monitor-stop-btn" onclick="">Stop ABR</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Container -->
     <div class="toast-container" id="toast-container"></div>
 
@@ -1389,6 +1835,8 @@
 
             if (page === 'analytics') loadAnalytics();
             if (page === 'streams') loadAllStreams();
+            if (page === 'restreams') loadRestreams();
+            if (page === 'transcoder') loadTranscoder();
             if (page === 'vod') loadVOD();
             if (page === 'monitoring') loadMonitoring();
             if (page === 'security') loadDomains();
@@ -1403,6 +1851,8 @@
                 document.getElementById('stat-viewers').textContent = data.current_viewers || 0;
                 document.getElementById('stat-total').textContent = data.total_streams || 0;
                 document.getElementById('stat-vod').textContent = data.total_recordings || 0;
+                document.getElementById('stat-restreams').textContent = data.active_restreams || 0;
+                document.getElementById('stat-transcodes').textContent = data.active_transcodes || 0;
             } catch (error) {
                 console.error('Failed to load stats:', error);
             }
@@ -1460,7 +1910,7 @@
                                 <code>${stream.stream_key}</code>
                                 ${stream.restream_source_url ? `<div style="font-size: 0.75rem; color: var(--accent); margin-top: 2px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(stream.restream_source_url)}">↓ ${escapeHtml(stream.restream_source_url)}</div>` : ''}
                             </td>
-                            <td><span class="badge ${stream.status}">${stream.status.toUpperCase()}</span>${stream.restream_status === 'pulling' ? ' <span class="badge" style="background: rgba(59,130,246,0.2); color: var(--accent);">PULLING</span>' : ''}</td>
+                            <td><span class="badge ${stream.status}">${stream.status.toUpperCase()}</span>${stream.restream_status === 'pulling' ? ' <span class="badge pulling">PULLING</span>' : ''}${stream.transcoding_status === 'active' ? ' <span class="badge transcoding">ABR</span>' : ''}</td>
                             <td>${stream.current_viewers || 0}</td>
                             <td>${stream.total_views || 0}</td>
                             <td>
@@ -1472,6 +1922,7 @@
                                         `<button class="btn btn-sm" style="background: var(--accent); color: white;" onclick="startRestream('${stream.id}')">Start Pull</button>`) : ''}
                                     ${stream.restream_status === 'error' ? `<span class="badge" style="background: rgba(239,68,68,0.2); color: var(--danger);">ERROR</span>` : ''}
                                     <button class="btn btn-sm" style="background: ${stream.is_recording_enabled ? 'var(--danger)' : 'var(--bg-tertiary)'}; color: white;" onclick="toggleRecording('${stream.id}', ${!stream.is_recording_enabled})">${stream.is_recording_enabled ? '⏺ REC' : '⏺ REC OFF'}</button>
+                                    <button class="btn btn-sm" style="background: ${stream.is_transcoding_enabled ? '#a855f7' : 'var(--bg-tertiary)'}; color: white;" onclick="toggleStreamTranscoding('${stream.id}', ${!stream.is_transcoding_enabled}, '${stream.status}')">${stream.is_transcoding_enabled ? 'ABR ON' : 'ABR OFF'}</button>
                                     <button class="btn btn-secondary btn-sm" onclick="copyStreamKey('${stream.stream_key}')">Copy Key</button>
                                     <button class="btn btn-secondary btn-sm" onclick="openEditStream('${stream.id}', '${escapeHtml(stream.name)}', '${escapeHtml(stream.description || '')}')">Edit</button>
                                     ${stream.status === 'live' ? `<button class="btn btn-danger btn-sm" onclick="confirmStopStream('${stream.id}', '${escapeHtml(stream.name)}')">Stop</button>` : ''}
@@ -2410,8 +2861,52 @@
 
             // Set feature toggles
             document.getElementById('setting-auto-recording').checked = settings.auto_recording === true || settings.auto_recording === 'true';
-            document.getElementById('setting-auto-transcoding').checked = settings.auto_transcoding === true || settings.auto_transcoding === 'true';
+            document.getElementById('setting-auto-transcoding').checked = settings.transcoding_enabled === true || settings.transcoding_enabled === 'true' || settings.auto_transcoding === true || settings.auto_transcoding === 'true';
             document.getElementById('setting-hotlink-protection').checked = settings.hotlink_protection === true || settings.hotlink_protection === 'true';
+
+            // Set max concurrent transcodes
+            if (settings.max_concurrent_transcodes) {
+                document.getElementById('setting-max-transcodes').value = settings.max_concurrent_transcodes;
+            }
+
+            // Load default profiles checkboxes
+            loadDefaultProfilesCheckboxes(settings.default_transcoding_profiles || '720p,480p,360p');
+        }
+
+        async function loadDefaultProfilesCheckboxes(currentDefaults) {
+            const container = document.getElementById('default-profiles-checkboxes');
+            try {
+                const data = await api('/transcoding/profiles');
+                const profiles = data.profiles || [];
+                const defaults = typeof currentDefaults === 'string' ? currentDefaults.split(',') : currentDefaults;
+                container.innerHTML = profiles.map(p => `
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 4px 8px; background: var(--bg-tertiary); border-radius: 6px;">
+                        <input type="checkbox" value="${p.name}" ${defaults.includes(p.name) ? 'checked' : ''}
+                            onchange="saveDefaultProfiles()" style="accent-color: #a855f7;">
+                        <span style="font-size: 0.875rem;">${p.display_name} (${p.width}×${p.height})</span>
+                    </label>
+                `).join('');
+            } catch (e) {
+                container.innerHTML = '<span style="color: var(--text-secondary); font-size: 0.875rem;">Could not load profiles</span>';
+            }
+        }
+
+        async function saveDefaultProfiles() {
+            const checkboxes = document.querySelectorAll('#default-profiles-checkboxes input[type="checkbox"]:checked');
+            const selected = Array.from(checkboxes).map(cb => cb.value).join(',');
+            await saveTranscodingSetting('default_transcoding_profiles', selected || '720p,480p,360p');
+        }
+
+        async function saveTranscodingSetting(key, value) {
+            try {
+                await api(`/settings/${key}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ value: String(value) })
+                });
+                notify.success(`Setting "${key}" updated`);
+            } catch (error) {
+                notify.error('Failed to save setting');
+            }
         }
 
         async function saveSettings() {
@@ -2421,7 +2916,7 @@
                     hls_url: document.getElementById('setting-hls-url').value,
                     token_expiry_hours: document.getElementById('setting-token-expiry').value,
                     auto_recording: document.getElementById('setting-auto-recording').checked,
-                    auto_transcoding: document.getElementById('setting-auto-transcoding').checked,
+                    transcoding_enabled: document.getElementById('setting-auto-transcoding').checked,
                     hotlink_protection: document.getElementById('setting-hotlink-protection').checked
                 };
 
@@ -2492,6 +2987,567 @@
                 `).join('');
             } else {
                 tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">No access logs yet</td></tr>';
+            }
+        }
+
+        // =========================
+        // Restreams Page Functions
+        // =========================
+
+        async function loadRestreams() {
+            try {
+                const data = await api('/streams');
+                const streams = (data.streams || []).filter(s => s.restream_source_url);
+                const tbody = document.getElementById('restreams-table');
+
+                // Update stats
+                document.getElementById('restream-stat-total').textContent = streams.length;
+                document.getElementById('restream-stat-active').textContent = streams.filter(s => s.restream_status === 'pulling').length;
+                document.getElementById('restream-stat-errors').textContent = streams.filter(s => s.restream_status === 'error').length;
+                document.getElementById('restream-stat-stopped').textContent = streams.filter(s => !s.restream_status || s.restream_status === 'stopped').length;
+
+                if (streams.length > 0) {
+                    tbody.innerHTML = streams.map(stream => {
+                        const statusBadge = stream.restream_status === 'pulling'
+                            ? '<span class="badge pulling">PULLING</span>'
+                            : stream.restream_status === 'error'
+                            ? '<span class="badge" style="background: rgba(239,68,68,0.2); color: var(--danger);">ERROR</span>'
+                            : '<span class="badge offline">STOPPED</span>';
+
+                        return `
+                            <tr>
+                                <td>
+                                    ${escapeHtml(stream.name)}
+                                    ${stream.status === 'live' ? '<span class="badge live" style="margin-left: 6px;">LIVE</span>' : ''}
+                                </td>
+                                <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(stream.restream_source_url)}">
+                                    <code style="font-size: 0.8rem;">${escapeHtml(stream.restream_source_url)}</code>
+                                </td>
+                                <td><code>${stream.stream_key}</code></td>
+                                <td>
+                                    ${statusBadge}
+                                    ${stream.restream_error ? `<div style="font-size: 0.75rem; color: var(--danger); margin-top: 2px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(stream.restream_error)}">${escapeHtml(stream.restream_error)}</div>` : ''}
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        ${stream.restream_status === 'pulling'
+                                            ? `<button class="btn btn-danger btn-sm" onclick="stopRestream('${stream.id}')">Stop Pull</button>`
+                                            : `<button class="btn btn-success btn-sm" onclick="startRestream('${stream.id}')">Start Pull</button>`}
+                                        ${stream.status === 'live' ? `<button class="btn btn-sm" style="background: var(--success); color: white;" onclick="openWatchStream('${stream.stream_key}', '${escapeHtml(stream.name)}')">Watch</button>` : ''}
+                                        ${stream.status === 'live' ? `<button class="btn btn-sm" style="background: var(--warning); color: white;" onclick="openMonitorStream('${stream.id}', '${stream.stream_key}', '${escapeHtml(stream.name)}', '${stream.started_at || ''}')">Monitor</button>` : ''}
+                                        <button class="btn btn-secondary btn-sm" onclick="openEditRestream('${stream.id}', '${escapeHtml(stream.name)}', '${stream.stream_key}', '${escapeHtml(stream.restream_source_url)}')">Edit Source</button>
+                                        <button class="btn btn-danger btn-sm" onclick="confirmDeleteStream('${stream.id}', '${escapeHtml(stream.name)}')">Delete</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><div><h3>No restreams yet</h3><p>Create a restream to pull an external stream</p></div></td></tr>';
+                }
+            } catch (error) {
+                console.error('Failed to load restreams:', error);
+            }
+        }
+
+        function openCreateRestreamModal() {
+            document.getElementById('restream-name').value = '';
+            document.getElementById('restream-source-url').value = '';
+            document.getElementById('restream-description').value = '';
+            document.getElementById('restream-auto-start').checked = true;
+            openModal('create-restream-modal');
+        }
+
+        document.getElementById('create-restream-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('restream-name').value;
+            const sourceUrl = document.getElementById('restream-source-url').value;
+            const description = document.getElementById('restream-description').value;
+            const autoStart = document.getElementById('restream-auto-start').checked;
+
+            try {
+                const data = await api('/streams', {
+                    method: 'POST',
+                    body: JSON.stringify({ name, description, restream_source_url: sourceUrl })
+                });
+
+                closeModal('create-restream-modal');
+                notify.success('Restream created');
+
+                if (autoStart && data.stream) {
+                    try {
+                        await api('/streams/' + data.stream.id + '/restream/start', {
+                            method: 'POST',
+                            body: JSON.stringify({ source_url: sourceUrl })
+                        });
+                        notify.success('Restream pulling started');
+                    } catch (err) {
+                        notify.warning('Created but failed to start pull');
+                    }
+                }
+
+                loadRestreams();
+                loadStats();
+            } catch (error) {
+                notify.error('Failed to create restream');
+            }
+        });
+
+        function openEditRestream(streamId, name, streamKey, sourceUrl) {
+            document.getElementById('edit-restream-id').value = streamId;
+            document.getElementById('edit-restream-info').textContent = `${name} (${streamKey})`;
+            document.getElementById('edit-restream-source-url').value = sourceUrl;
+            openModal('edit-restream-modal');
+        }
+
+        document.getElementById('edit-restream-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const streamId = document.getElementById('edit-restream-id').value;
+            const newUrl = document.getElementById('edit-restream-source-url').value;
+
+            try {
+                // Stop current pull
+                try { await api('/streams/' + streamId + '/restream/stop', { method: 'POST', body: '{}' }); } catch (_) {}
+
+                // Update URL
+                await api('/streams/' + streamId, {
+                    method: 'PUT',
+                    body: JSON.stringify({ restream_source_url: newUrl })
+                });
+
+                // Restart pull
+                await api('/streams/' + streamId + '/restream/start', {
+                    method: 'POST',
+                    body: JSON.stringify({ source_url: newUrl })
+                });
+
+                closeModal('edit-restream-modal');
+                notify.success('Restream source updated and restarted');
+                loadRestreams();
+            } catch (error) {
+                notify.error('Failed to update restream source');
+            }
+        });
+
+        // =========================
+        // Transcoder Page Functions
+        // =========================
+
+        let transcodingMonitorInterval = null;
+
+        async function loadTranscoder() {
+            try {
+                const [streamsData, statusData, profilesData] = await Promise.all([
+                    api('/streams'),
+                    api('/transcoding/status'),
+                    api('/transcoding/profiles?active=true')
+                ]);
+
+                const streams = streamsData.streams || [];
+                const sessions = statusData.sessions || [];
+
+                // Update stats
+                document.getElementById('tc-stat-active').textContent = statusData.active_transcodes || 0;
+                document.getElementById('tc-stat-profiles').textContent = statusData.total_profiles || 0;
+
+                const maxConcurrent = statusData.max_concurrent || 5;
+                const active = statusData.active_transcodes || 0;
+                const capacityPct = Math.min(100, (active / maxConcurrent) * 100);
+                document.getElementById('tc-stat-capacity').innerHTML = `
+                    <div class="value" style="font-size: 1.2rem;">${active} / ${maxConcurrent}</div>
+                    <div class="capacity-bar">
+                        <div class="capacity-bar-fill" style="width: ${capacityPct}%; background: ${capacityPct > 80 ? 'var(--danger)' : capacityPct > 50 ? 'var(--warning)' : 'var(--success)'};"></div>
+                    </div>
+                `;
+
+                // Count total FFmpeg processes
+                let totalProcesses = 0;
+                sessions.forEach(s => {
+                    Object.values(s.profiles || {}).forEach(p => { if (p.running) totalProcesses++; });
+                });
+                document.getElementById('tc-stat-processes').textContent = totalProcesses;
+
+                // Active transcoding table
+                const activeTbody = document.getElementById('active-transcoding-table');
+                if (sessions.length > 0) {
+                    activeTbody.innerHTML = sessions.map(session => {
+                        const stream = streams.find(s => s.id === session.streamId);
+                        const profileChips = Object.entries(session.profiles || {}).map(([name, info]) =>
+                            `<span class="profile-chip ${info.running ? 'active' : 'error'}">${info.running ? '●' : '✗'} ${name}</span>`
+                        ).join('');
+
+                        const baseUrl = window.location.origin;
+                        return `
+                            <tr>
+                                <td>${stream ? escapeHtml(stream.name) : session.streamKey}<br><code style="font-size: 0.75rem;">${session.streamKey}</code></td>
+                                <td>${profileChips}</td>
+                                <td><span class="badge transcoding">TRANSCODING</span></td>
+                                <td><input type="text" value="${baseUrl}/live/${session.masterPlaylist}" readonly
+                                    style="background: var(--bg-tertiary); border: none; color: var(--text-primary); padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; width: 200px; cursor: pointer;"
+                                    onclick="this.select(); navigator.clipboard.writeText(this.value); notify.success('Master URL copied!');"></td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button class="btn btn-sm" style="background: #a855f7; color: white;" onclick="openTranscodingMonitor('${session.streamId}', '${session.streamKey}', '${stream ? escapeHtml(stream.name) : session.streamKey}')">Monitor</button>
+                                        <button class="btn btn-danger btn-sm" onclick="stopTranscoding('${session.streamId}')">Stop ABR</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    activeTbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">No active transcoding sessions</td></tr>';
+                }
+
+                // All streams table
+                const allTbody = document.getElementById('transcoder-streams-table');
+                if (streams.length > 0) {
+                    allTbody.innerHTML = streams.map(stream => {
+                        const isTranscoding = stream.transcoding_status === 'active';
+                        const tcStatusBadge = isTranscoding
+                            ? '<span class="badge transcoding">ACTIVE</span>'
+                            : stream.transcoding_status === 'error'
+                            ? '<span class="badge" style="background: rgba(239,68,68,0.2); color: var(--danger);">ERROR</span>'
+                            : '<span style="color: var(--text-secondary);">—</span>';
+
+                        return `
+                            <tr>
+                                <td>${escapeHtml(stream.name)}<br><code style="font-size: 0.75rem;">${stream.stream_key}</code></td>
+                                <td><span class="badge ${stream.status}">${stream.status.toUpperCase()}</span></td>
+                                <td>
+                                    <button class="btn btn-sm" style="background: ${stream.is_transcoding_enabled ? '#a855f7' : 'var(--bg-tertiary)'}; color: white; min-width: 70px;"
+                                        onclick="toggleStreamTranscoding('${stream.id}', ${!stream.is_transcoding_enabled}, '${stream.status}')">
+                                        ${stream.is_transcoding_enabled ? 'ON' : 'OFF'}
+                                    </button>
+                                </td>
+                                <td><span style="color: var(--text-secondary); font-size: 0.85rem;">Default</span></td>
+                                <td>${tcStatusBadge}</td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button class="btn btn-secondary btn-sm" onclick="openConfigureProfiles('${stream.id}', '${escapeHtml(stream.name)}')">Configure</button>
+                                        ${stream.status === 'live' && stream.is_transcoding_enabled && !isTranscoding
+                                            ? `<button class="btn btn-sm" style="background: #a855f7; color: white;" onclick="startTranscoding('${stream.id}')">Start ABR</button>`
+                                            : ''}
+                                        ${isTranscoding
+                                            ? `<button class="btn btn-danger btn-sm" onclick="stopTranscoding('${stream.id}')">Stop ABR</button>`
+                                            : ''}
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    allTbody.innerHTML = '<tr><td colspan="6" class="empty-state"><div><h3>No streams</h3><p>Create a stream first</p></div></td></tr>';
+                }
+            } catch (error) {
+                console.error('Failed to load transcoder:', error);
+            }
+        }
+
+        async function toggleStreamTranscoding(streamId, enable, streamStatus) {
+            try {
+                await api('/streams/' + streamId, {
+                    method: 'PUT',
+                    body: JSON.stringify({ is_transcoding_enabled: enable })
+                });
+
+                // Auto-start if enabling and stream is live
+                if (enable && streamStatus === 'live') {
+                    try {
+                        await api('/streams/' + streamId + '/transcoding/start', { method: 'POST', body: '{}' });
+                        notify.success('ABR transcoding enabled and started');
+                    } catch (err) {
+                        notify.success('ABR enabled (will start on next stream)');
+                    }
+                } else if (!enable) {
+                    // Auto-stop if disabling
+                    try {
+                        await api('/streams/' + streamId + '/transcoding/stop', { method: 'POST', body: '{}' });
+                    } catch (_) {}
+                    notify.success('ABR transcoding disabled');
+                } else {
+                    notify.success(enable ? 'ABR enabled' : 'ABR disabled');
+                }
+
+                if (currentPage === 'transcoder') loadTranscoder();
+                if (currentPage === 'streams') loadAllStreams();
+            } catch (error) {
+                notify.error('Failed to toggle ABR');
+            }
+        }
+
+        async function startTranscoding(streamId) {
+            try {
+                await api('/streams/' + streamId + '/transcoding/start', { method: 'POST', body: '{}' });
+                notify.success('Transcoding started');
+                if (currentPage === 'transcoder') loadTranscoder();
+                if (currentPage === 'streams') loadAllStreams();
+            } catch (error) {
+                notify.error('Failed to start transcoding: ' + (error.message || ''));
+            }
+        }
+
+        async function stopTranscoding(streamId) {
+            try {
+                await api('/streams/' + streamId + '/transcoding/stop', { method: 'POST', body: '{}' });
+                notify.success('Transcoding stopped');
+                if (currentPage === 'transcoder') loadTranscoder();
+                if (currentPage === 'streams') loadAllStreams();
+            } catch (error) {
+                notify.error('Failed to stop transcoding');
+            }
+        }
+
+        // Profile Management
+        async function openManageProfiles() {
+            openModal('manage-profiles-modal');
+            await loadProfilesTable();
+        }
+
+        async function loadProfilesTable() {
+            try {
+                const data = await api('/transcoding/profiles');
+                const tbody = document.getElementById('profiles-table');
+
+                if (data.profiles && data.profiles.length > 0) {
+                    tbody.innerHTML = data.profiles.map(p => `
+                        <tr>
+                            <td><strong>${escapeHtml(p.display_name)}</strong><br><code style="font-size: 0.75rem;">${p.name}</code></td>
+                            <td>${p.width}×${p.height}</td>
+                            <td>${p.video_bitrate}k</td>
+                            <td>${p.preset}</td>
+                            <td style="color: ${p.is_active ? 'var(--success)' : 'var(--danger)'};">${p.is_active ? 'Yes' : 'No'}</td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="btn btn-secondary btn-sm" onclick="editProfile('${p.id}', '${p.name}', '${escapeHtml(p.display_name)}', ${p.width}, ${p.height}, ${p.video_bitrate}, ${p.audio_bitrate}, ${p.fps}, '${p.preset}')">Edit</button>
+                                    <button class="btn btn-sm" style="background: ${p.is_active ? 'var(--danger)' : 'var(--success)'}; color: white;" onclick="toggleProfile('${p.id}', ${!p.is_active})">${p.is_active ? 'Disable' : 'Enable'}</button>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">No profiles</td></tr>';
+                }
+            } catch (error) {
+                console.error('Failed to load profiles:', error);
+            }
+        }
+
+        function editProfile(id, name, displayName, width, height, vbitrate, abitrate, fps, preset) {
+            document.getElementById('profile-edit-id').value = id;
+            document.getElementById('profile-name').value = name;
+            document.getElementById('profile-display-name').value = displayName;
+            document.getElementById('profile-width').value = width;
+            document.getElementById('profile-height').value = height;
+            document.getElementById('profile-vbitrate').value = vbitrate;
+            document.getElementById('profile-abitrate').value = abitrate;
+            document.getElementById('profile-fps').value = fps;
+            document.getElementById('profile-preset').value = preset;
+            document.getElementById('profile-form-title').textContent = 'Edit Profile';
+        }
+
+        function resetProfileForm() {
+            document.getElementById('profile-edit-id').value = '';
+            document.getElementById('profile-name').value = '';
+            document.getElementById('profile-display-name').value = '';
+            document.getElementById('profile-width').value = '';
+            document.getElementById('profile-height').value = '';
+            document.getElementById('profile-vbitrate').value = '';
+            document.getElementById('profile-abitrate').value = '128';
+            document.getElementById('profile-fps').value = '30';
+            document.getElementById('profile-preset').value = 'medium';
+            document.getElementById('profile-form-title').textContent = 'Add New Profile';
+        }
+
+        async function saveProfile() {
+            const editId = document.getElementById('profile-edit-id').value;
+            const data = {
+                name: document.getElementById('profile-name').value,
+                display_name: document.getElementById('profile-display-name').value,
+                width: parseInt(document.getElementById('profile-width').value),
+                height: parseInt(document.getElementById('profile-height').value),
+                video_bitrate: parseInt(document.getElementById('profile-vbitrate').value),
+                audio_bitrate: parseInt(document.getElementById('profile-abitrate').value) || 128,
+                fps: parseInt(document.getElementById('profile-fps').value) || 30,
+                preset: document.getElementById('profile-preset').value
+            };
+
+            if (!data.name || !data.display_name || !data.width || !data.height || !data.video_bitrate) {
+                notify.warning('Please fill in all required fields');
+                return;
+            }
+
+            try {
+                if (editId) {
+                    await api('/transcoding/profiles/' + editId, {
+                        method: 'PUT',
+                        body: JSON.stringify(data)
+                    });
+                    notify.success('Profile updated');
+                } else {
+                    await api('/transcoding/profiles', {
+                        method: 'POST',
+                        body: JSON.stringify(data)
+                    });
+                    notify.success('Profile created');
+                }
+                resetProfileForm();
+                await loadProfilesTable();
+            } catch (error) {
+                notify.error('Failed to save profile');
+            }
+        }
+
+        async function toggleProfile(profileId, active) {
+            try {
+                await api('/transcoding/profiles/' + profileId, {
+                    method: 'PUT',
+                    body: JSON.stringify({ is_active: active })
+                });
+                notify.success(active ? 'Profile enabled' : 'Profile disabled');
+                await loadProfilesTable();
+            } catch (error) {
+                notify.error('Failed to toggle profile');
+            }
+        }
+
+        // Configure stream profiles
+        async function openConfigureProfiles(streamId, streamName) {
+            document.getElementById('configure-profiles-title').textContent = 'Configure Profiles: ' + streamName;
+            document.getElementById('configure-profiles-stream-id').value = streamId;
+            openModal('configure-profiles-modal');
+
+            try {
+                const [allProfiles, streamProfiles] = await Promise.all([
+                    api('/transcoding/profiles?active=true'),
+                    api('/transcoding/streams/' + streamId + '/profiles')
+                ]);
+
+                const assignedIds = (streamProfiles.profiles || []).map(p => p.id);
+                const usingDefaults = streamProfiles.using_defaults;
+
+                document.getElementById('configure-use-defaults').checked = usingDefaults;
+
+                const list = document.getElementById('configure-profiles-list');
+                list.innerHTML = (allProfiles.profiles || []).map(p => `
+                    <div class="profile-checkbox-item">
+                        <input type="checkbox" value="${p.id}" ${assignedIds.includes(p.id) || usingDefaults ? 'checked' : ''}>
+                        <div class="profile-details">
+                            <div class="profile-name">${escapeHtml(p.display_name)}</div>
+                            <div class="profile-info">${p.width}×${p.height} · ${p.video_bitrate} kbps · ${p.preset}</div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                notify.error('Failed to load profiles');
+            }
+        }
+
+        async function saveConfiguredProfiles() {
+            const streamId = document.getElementById('configure-profiles-stream-id').value;
+            const useDefaults = document.getElementById('configure-use-defaults').checked;
+
+            try {
+                if (useDefaults) {
+                    await api('/transcoding/streams/' + streamId + '/profiles', {
+                        method: 'PUT',
+                        body: JSON.stringify({ profile_ids: [] })
+                    });
+                } else {
+                    const checkboxes = document.querySelectorAll('#configure-profiles-list input[type="checkbox"]:checked');
+                    const ids = Array.from(checkboxes).map(cb => cb.value);
+                    await api('/transcoding/streams/' + streamId + '/profiles', {
+                        method: 'PUT',
+                        body: JSON.stringify({ profile_ids: ids })
+                    });
+                }
+
+                closeModal('configure-profiles-modal');
+                notify.success('Profiles configured');
+                if (currentPage === 'transcoder') loadTranscoder();
+            } catch (error) {
+                notify.error('Failed to save profiles');
+            }
+        }
+
+        // Transcoding Monitor
+        function openTranscodingMonitor(streamId, streamKey, streamName) {
+            document.getElementById('tc-monitor-title').textContent = 'Transcoding: ' + streamName;
+
+            const baseUrl = window.location.origin;
+            document.getElementById('tc-monitor-master-url').value = `${baseUrl}/live/${streamKey}_master.m3u8`;
+
+            document.getElementById('tc-monitor-watch-btn').onclick = () => openWatchStream(streamKey + '_master', streamName + ' (ABR)');
+            document.getElementById('tc-monitor-stop-btn').onclick = async () => {
+                await stopTranscoding(streamId);
+                closeTranscodingMonitor();
+            };
+
+            updateTranscodingMonitor(streamId, streamKey);
+            transcodingMonitorInterval = setInterval(() => updateTranscodingMonitor(streamId, streamKey), 5000);
+            openModal('transcoding-monitor-modal');
+        }
+
+        function closeTranscodingMonitor() {
+            if (transcodingMonitorInterval) {
+                clearInterval(transcodingMonitorInterval);
+                transcodingMonitorInterval = null;
+            }
+            closeModal('transcoding-monitor-modal');
+        }
+
+        async function updateTranscodingMonitor(streamId, streamKey) {
+            try {
+                const [tcStatus, srsData] = await Promise.all([
+                    api('/streams/' + streamId + '/transcoding/status'),
+                    api('/stats/srs/streams')
+                ]);
+
+                const srsStreams = srsData.streams || [];
+
+                // Source stream info
+                const srcStream = srsStreams.find(s => s.name === streamKey);
+                if (srcStream) {
+                    document.getElementById('tc-monitor-src-bitrate').textContent = (srcStream.kbps?.recv_30s || '--') + ' kbps';
+                    document.getElementById('tc-monitor-src-codec').textContent = srcStream.video?.codec || '--';
+                    if (srcStream.video) {
+                        document.getElementById('tc-monitor-src-resolution').textContent = srcStream.video.width + '×' + srcStream.video.height;
+                    }
+                }
+
+                // Uptime
+                if (tcStatus.process?.startedAt) {
+                    const elapsed = Math.floor((Date.now() - new Date(tcStatus.process.startedAt).getTime()) / 1000);
+                    const h = Math.floor(elapsed / 3600);
+                    const m = Math.floor((elapsed % 3600) / 60);
+                    const s = elapsed % 60;
+                    document.getElementById('tc-monitor-uptime').textContent = (h > 0 ? h + 'h ' : '') + m + 'm ' + s + 's';
+                }
+
+                // Renditions table
+                const renditions = document.getElementById('tc-monitor-renditions');
+                const profiles = tcStatus.process?.profiles || {};
+                const profileNames = Object.keys(profiles);
+
+                if (profileNames.length > 0) {
+                    renditions.innerHTML = profileNames.map(name => {
+                        const info = profiles[name];
+                        const variantStream = srsStreams.find(s => s.name === `${streamKey}_${name}`);
+                        const running = info.running;
+
+                        return `
+                            <tr>
+                                <td><strong>${name}</strong></td>
+                                <td style="color: ${running ? 'var(--success)' : 'var(--danger)'};">${running ? '● LIVE' : '✗ DOWN'}</td>
+                                <td>${variantStream ? (variantStream.kbps?.recv_30s || '--') + ' kbps' : '--'}</td>
+                                <td>${variantStream?.video ? variantStream.video.width + '×' + variantStream.video.height : '--'}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    renditions.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">No renditions</td></tr>';
+                }
+            } catch (error) {
+                console.error('Failed to update transcoding monitor:', error);
             }
         }
 

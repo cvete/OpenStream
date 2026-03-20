@@ -58,12 +58,22 @@ router.get('/server', verifyToken, async (req, res) => {
             logger.debug('Could not fetch SRS stats:', srsError.message);
         }
 
+        // Get active restream and transcoding counts
+        const restreamResult = await db.query(
+            `SELECT COUNT(*) as count FROM streams WHERE restream_status = 'pulling' AND is_active = true`
+        );
+        const transcodingResult = await db.query(
+            `SELECT COUNT(*) as count FROM streams WHERE transcoding_status = 'active' AND is_active = true`
+        );
+
         res.json({
             live_streams: parseInt(liveResult.rows[0].count),
             total_streams: parseInt(totalStreamsResult.rows[0].count),
             total_recordings: parseInt(recordingsResult.rows[0].count),
             current_viewers: totalViewers,
             views_today: parseInt(viewsTodayResult.rows[0].views),
+            active_restreams: parseInt(restreamResult.rows[0].count),
+            active_transcodes: parseInt(transcodingResult.rows[0].count),
             srs: srsStats,
             timestamp: new Date().toISOString()
         });

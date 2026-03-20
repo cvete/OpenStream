@@ -11,6 +11,9 @@ const redis = require('../services/redis');
 const logger = require('../services/logger');
 const { verifyWebhookSignature } = require('../middleware/webhookAuth');
 
+// Regex to detect transcoded variant streams (e.g. streamkey_720p, streamkey_1080p)
+const VARIANT_STREAM_REGEX = /_\d{3,4}p$/;
+
 /**
  * POST /api/hooks/publish
  * Called when a stream starts publishing
@@ -29,6 +32,12 @@ router.post('/publish', verifyWebhookSignature, async (req, res) => {
         } = req.body;
 
         logger.info(`Publish hook: ${stream} from ${ip}`);
+
+        // Allow transcoded variant streams through (pushed by our FFmpeg transcoder)
+        if (VARIANT_STREAM_REGEX.test(stream)) {
+            logger.debug(`Allowing transcoded variant stream: ${stream}`);
+            return res.json({ code: 0 });
+        }
 
         // Atomically validate and set stream live (prevents race conditions)
         const result = await db.query(
@@ -72,6 +81,24 @@ router.post('/publish', verifyWebhookSignature, async (req, res) => {
         // Return success (code 0 allows the stream)
         res.json({ code: 0 });
 
+        // Auto-start transcoding if enabled (after response sent)
+        setImmediate(async () => {
+            try {
+                if (streamData.is_transcoding_enabled) {
+                    const globalSetting = await db.query(
+                        "SELECT value FROM settings WHERE key = 'transcoding_enabled'"
+                    );
+                    if (globalSetting.rows[0]?.value === 'true') {
+                        const transcoderManager = require('../services/transcoderManager');
+                        await transcoderManager.startTranscoding(streamData.id, streamData.stream_key);
+                        logger.info(`Auto-started transcoding for ${stream}`);
+                    }
+                }
+            } catch (err) {
+                logger.error(`Failed to auto-start transcoding for ${stream}:`, err.message);
+            }
+        });
+
     } catch (error) {
         logger.error('Publish hook error:', error);
         // On error, reject the stream to be safe
@@ -95,6 +122,28 @@ router.post('/unpublish', verifyWebhookSignature, async (req, res) => {
         } = req.body;
 
         logger.info(`Unpublish hook: ${stream} from ${ip}`);
+
+        // Ignore transcoded variant streams
+        if (VARIANT_STREAM_REGEX.test(stream)) {
+            logger.debug(`Ignoring unpublish for variant stream: ${stream}`);
+            return res.json({ code: 0 });
+        }
+
+        // Auto-stop transcoding
+        try {
+            const transcoderManager = require('../services/transcoderManager');
+            // Look up stream ID for transcoder cleanup
+            const tcStream = await db.query(
+                'SELECT id FROM streams WHERE stream_key = $1',
+                [stream]
+            );
+            if (tcStream.rows.length > 0) {
+                await transcoderManager.stopTranscoding(tcStream.rows[0].id);
+                logger.info(`Auto-stopped transcoding for ${stream}`);
+            }
+        } catch (err) {
+            logger.error(`Failed to auto-stop transcoding for ${stream}:`, err.message);
+        }
 
         // Update stream status
         const result = await db.query(
@@ -153,10 +202,13 @@ router.post('/play', verifyWebhookSignature, async (req, res) => {
 
         logger.debug(`Play hook: ${stream} client ${client_id} from ${ip}`);
 
+        // Strip variant suffix to find base stream key for DB lookup
+        const baseStreamKey = stream.replace(VARIANT_STREAM_REGEX, '');
+
         // Check if stream exists and is live
         const result = await db.query(
             `SELECT id FROM streams WHERE stream_key = $1 AND status = 'live' AND is_active = true`,
-            [stream]
+            [baseStreamKey]
         );
 
         if (result.rows.length === 0) {
@@ -205,15 +257,18 @@ router.post('/stop', verifyWebhookSignature, async (req, res) => {
 
         logger.debug(`Stop hook: ${stream} client ${client_id} from ${ip}`);
 
+        // Strip variant suffix to find base stream key
+        const baseStreamKey = stream.replace(VARIANT_STREAM_REGEX, '');
+
         // Remove viewer from Redis
         const viewerId = `${client_id}-${ip}`;
-        await redis.removeViewer(stream, viewerId);
+        await redis.removeViewer(baseStreamKey, viewerId);
 
         // Update viewer count
-        const viewerCount = await redis.getViewerCount(stream);
+        const viewerCount = await redis.getViewerCount(baseStreamKey);
         await db.query(
             `UPDATE streams SET current_viewers = $1 WHERE stream_key = $2`,
-            [Math.max(0, viewerCount), stream]
+            [Math.max(0, viewerCount), baseStreamKey]
         );
 
         res.json({ code: 0 });
