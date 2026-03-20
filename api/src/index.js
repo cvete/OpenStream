@@ -178,6 +178,10 @@ async function startServer() {
         await redisService.initRedis();
         logger.info('Redis connected');
 
+        // Recover any restreams that were running before restart
+        const restreamManager = require('./services/restreamManager');
+        await restreamManager.recoverRestreams();
+
         // Start HTTP server
         const PORT = config.port || 3000;
         server = app.listen(PORT, '0.0.0.0', () => {
@@ -210,7 +214,12 @@ async function gracefulShutdown(signal) {
             logger.info('HTTP server closed');
         }
 
-        // 2. Close Redis
+        // 2. Stop all restream processes
+        const restreamManager = require('./services/restreamManager');
+        await restreamManager.cleanup();
+        logger.info('Restream processes stopped');
+
+        // 3. Close Redis
         await redisService.disconnect();
 
         // 3. Close database pool

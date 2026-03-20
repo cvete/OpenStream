@@ -11,6 +11,7 @@ const logger = require('../services/logger');
 const auditLogger = require('../services/auditLogger');
 const { verifyToken, requireAdmin } = require('../middleware/auth');
 const tokenService = require('../services/tokenService');
+const restreamManager = require('../services/restreamManager');
 const { body, validationResult } = require('express-validator');
 const {
     handleValidationErrors,
@@ -98,16 +99,16 @@ router.post('/',
     handleValidationErrors,
     async (req, res) => {
         try {
-            const { name, description } = req.body;
+            const { name, description, restream_source_url } = req.body;
 
         // Generate unique stream key
         const streamKey = tokenService.generateStreamKey();
 
         const result = await db.query(
-            `INSERT INTO streams (name, stream_key, description, user_id)
-             VALUES ($1, $2, $3, $4)
+            `INSERT INTO streams (name, stream_key, description, user_id, restream_source_url)
+             VALUES ($1, $2, $3, $4, $5)
              RETURNING *`,
-            [name, streamKey, description, req.user.id]
+            [name, streamKey, description, req.user.id, restream_source_url || null]
         );
 
         logger.info(`Stream created: ${name} (${streamKey}) by ${req.user.username}`);
@@ -213,7 +214,7 @@ router.put('/:id', verifyToken, [
         const updates = req.body;
 
         // Build update query dynamically
-        const allowedFields = ['name', 'description', 'is_recording_enabled', 'is_transcoding_enabled'];
+        const allowedFields = ['name', 'description', 'is_recording_enabled', 'is_transcoding_enabled', 'restream_source_url'];
         const setClauses = [];
         const values = [];
         let paramIndex = 1;
@@ -497,6 +498,131 @@ router.get('/status/live', async (req, res) => {
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to get live streams'
+        });
+    }
+});
+
+/**
+ * POST /api/streams/:id/restream/start
+ * Start pulling an external stream
+ */
+router.post('/:id/restream/start', verifyToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { source_url } = req.body;
+
+        const streamResult = await db.query(
+            `SELECT * FROM streams WHERE (id::text = $1 OR stream_key = $1) AND is_active = true`,
+            [id]
+        );
+
+        if (streamResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Not Found', message: 'Stream not found' });
+        }
+
+        const stream = streamResult.rows[0];
+        const sourceUrl = source_url || stream.restream_source_url;
+
+        if (!sourceUrl) {
+            return res.status(400).json({ error: 'Bad Request', message: 'No source URL provided' });
+        }
+
+        // Validate URL
+        try {
+            const url = new URL(sourceUrl);
+            if (!['http:', 'https:'].includes(url.protocol)) {
+                return res.status(400).json({ error: 'Bad Request', message: 'Source URL must be HTTP or HTTPS' });
+            }
+        } catch {
+            return res.status(400).json({ error: 'Bad Request', message: 'Invalid source URL' });
+        }
+
+        const result = await restreamManager.startRestream(stream.id, stream.stream_key, sourceUrl);
+
+        logger.info(`Restream started: ${stream.stream_key} from ${sourceUrl} by ${req.user.username}`);
+
+        res.json({
+            message: 'Restream started',
+            stream_key: stream.stream_key,
+            source_url: sourceUrl,
+            pid: result.pid
+        });
+
+    } catch (error) {
+        logger.error('Error starting restream:', error);
+        res.status(500).json({
+            error: 'Internal Server Error',
+            message: error.message || 'Failed to start restream'
+        });
+    }
+});
+
+/**
+ * POST /api/streams/:id/restream/stop
+ * Stop pulling an external stream
+ */
+router.post('/:id/restream/stop', verifyToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const streamResult = await db.query(
+            `SELECT * FROM streams WHERE (id::text = $1 OR stream_key = $1) AND is_active = true`,
+            [id]
+        );
+
+        if (streamResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Not Found', message: 'Stream not found' });
+        }
+
+        await restreamManager.stopRestream(streamResult.rows[0].id);
+
+        logger.info(`Restream stopped: ${streamResult.rows[0].stream_key} by ${req.user.username}`);
+
+        res.json({ message: 'Restream stopped' });
+
+    } catch (error) {
+        logger.error('Error stopping restream:', error);
+        res.status(500).json({
+            error: 'Internal Server Error',
+            message: 'Failed to stop restream'
+        });
+    }
+});
+
+/**
+ * GET /api/streams/:id/restream/status
+ * Get restream status
+ */
+router.get('/:id/restream/status', verifyToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const streamResult = await db.query(
+            `SELECT id, stream_key, restream_source_url, restream_status, restream_error
+             FROM streams WHERE (id::text = $1 OR stream_key = $1) AND is_active = true`,
+            [id]
+        );
+
+        if (streamResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Not Found', message: 'Stream not found' });
+        }
+
+        const stream = streamResult.rows[0];
+        const processStatus = restreamManager.getStatus(stream.id);
+
+        res.json({
+            stream_key: stream.stream_key,
+            source_url: stream.restream_source_url,
+            status: stream.restream_status,
+            error: stream.restream_error,
+            process: processStatus
+        });
+
+    } catch (error) {
+        logger.error('Error getting restream status:', error);
+        res.status(500).json({
+            error: 'Internal Server Error',
+            message: 'Failed to get restream status'
         });
     }
 });

@@ -37,6 +37,9 @@ CREATE TABLE streams (
     total_views INTEGER DEFAULT 0,
     started_at TIMESTAMP WITH TIME ZONE,
     ended_at TIMESTAMP WITH TIME ZONE,
+    restream_source_url TEXT,
+    restream_status VARCHAR(20) DEFAULT NULL CHECK (restream_status IN (NULL, 'pulling', 'stopped', 'error')),
+    restream_error TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

@@ -1044,6 +1044,11 @@
                     <label>Description (optional)</label>
                     <input type="text" id="stream-description" placeholder="Stream description...">
                 </div>
+                <div class="form-group">
+                    <label>Restream Source URL (optional)</label>
+                    <input type="url" id="stream-restream-url" placeholder="https://example.com/stream.m3u8">
+                    <small style="color: var(--text-secondary); font-size: 0.8rem;">Enter an external HLS/TS URL to pull and restream. Leave empty for normal RTMP ingest.</small>
+                </div>
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('create-stream-modal')">Cancel</button>
                     <button type="submit" class="btn btn-primary">Create Stream</button>
@@ -1451,14 +1456,21 @@
                     tbody.innerHTML = data.streams.map(stream => `
                         <tr>
                             <td>${escapeHtml(stream.name)}</td>
-                            <td><code>${stream.stream_key}</code></td>
-                            <td><span class="badge ${stream.status}">${stream.status.toUpperCase()}</span></td>
+                            <td>
+                                <code>${stream.stream_key}</code>
+                                ${stream.restream_source_url ? `<div style="font-size: 0.75rem; color: var(--accent); margin-top: 2px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(stream.restream_source_url)}">↓ ${escapeHtml(stream.restream_source_url)}</div>` : ''}
+                            </td>
+                            <td><span class="badge ${stream.status}">${stream.status.toUpperCase()}</span>${stream.restream_status === 'pulling' ? ' <span class="badge" style="background: rgba(59,130,246,0.2); color: var(--accent);">PULLING</span>' : ''}</td>
                             <td>${stream.current_viewers || 0}</td>
                             <td>${stream.total_views || 0}</td>
                             <td>
                                 <div class="action-buttons">
                                     ${stream.status === 'live' ? `<button class="btn btn-sm" style="background: var(--success); color: white;" onclick="openWatchStream('${stream.stream_key}', '${escapeHtml(stream.name)}')">Watch</button>` : ''}
                                     ${stream.status === 'live' ? `<button class="btn btn-sm" style="background: var(--warning); color: white;" onclick="openMonitorStream('${stream.id}', '${stream.stream_key}', '${escapeHtml(stream.name)}', '${stream.started_at || ''}')">Monitor</button>` : ''}
+                                    ${stream.restream_source_url ? (stream.restream_status === 'pulling' ?
+                                        `<button class="btn btn-sm" style="background: var(--danger); color: white;" onclick="stopRestream('${stream.id}')">Stop Pull</button>` :
+                                        `<button class="btn btn-sm" style="background: var(--accent); color: white;" onclick="startRestream('${stream.id}')">Start Pull</button>`) : ''}
+                                    ${stream.restream_status === 'error' ? `<span class="badge" style="background: rgba(239,68,68,0.2); color: var(--danger);">ERROR</span>` : ''}
                                     <button class="btn btn-sm" style="background: ${stream.is_recording_enabled ? 'var(--danger)' : 'var(--bg-tertiary)'}; color: white;" onclick="toggleRecording('${stream.id}', ${!stream.is_recording_enabled})">${stream.is_recording_enabled ? '⏺ REC' : '⏺ REC OFF'}</button>
                                     <button class="btn btn-secondary btn-sm" onclick="copyStreamKey('${stream.stream_key}')">Copy Key</button>
                                     <button class="btn btn-secondary btn-sm" onclick="openEditStream('${stream.id}', '${escapeHtml(stream.name)}', '${escapeHtml(stream.description || '')}')">Edit</button>
@@ -1696,11 +1708,15 @@
             e.preventDefault();
             const name = document.getElementById('stream-name').value;
             const description = document.getElementById('stream-description').value;
+            const restreamUrl = document.getElementById('stream-restream-url').value;
 
             try {
+                const body = { name, description };
+                if (restreamUrl) body.restream_source_url = restreamUrl;
+
                 const data = await api('/streams', {
                     method: 'POST',
-                    body: JSON.stringify({ name, description })
+                    body: JSON.stringify(body)
                 });
 
                 closeModal('create-stream-modal');
@@ -1710,6 +1726,20 @@
 
                 document.getElementById('stream-name').value = '';
                 document.getElementById('stream-description').value = '';
+                document.getElementById('stream-restream-url').value = '';
+
+                // Auto-start restream if source URL provided
+                if (restreamUrl) {
+                    try {
+                        await api('/streams/' + data.stream.id + '/restream/start', {
+                            method: 'POST',
+                            body: JSON.stringify({ source_url: restreamUrl })
+                        });
+                        notify.success('Restream started automatically');
+                    } catch (err) {
+                        notify.warning('Stream created but restream failed to start');
+                    }
+                }
 
                 loadStats();
                 if (currentPage === 'streams') loadAllStreams();
@@ -1862,6 +1892,29 @@
             const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
             const i = Math.floor(Math.log(bytes) / Math.log(k));
             return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        // Restream controls
+        async function startRestream(streamId) {
+            try {
+                await api('/streams/' + streamId + '/restream/start', { method: 'POST', body: '{}' });
+                notify.success('Restream started');
+                loadAllStreams();
+                loadStreams();
+            } catch (error) {
+                notify.error('Failed to start restream: ' + (error.message || ''));
+            }
+        }
+
+        async function stopRestream(streamId) {
+            try {
+                await api('/streams/' + streamId + '/restream/stop', { method: 'POST', body: '{}' });
+                notify.success('Restream stopped');
+                loadAllStreams();
+                loadStreams();
+            } catch (error) {
+                notify.error('Failed to stop restream');
+            }
         }
 
         // Toggle Recording
