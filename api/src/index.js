@@ -44,7 +44,8 @@ app.use(helmet({
             scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
             styleSrc: ["'self'", "'unsafe-inline'"],
             imgSrc: ["'self'", "data:", "https:"],
-            connectSrc: ["'self'"],
+            connectSrc: ["'self'", "blob:"],
+            workerSrc: ["'self'", "blob:"],
             frameSrc: ["'self'", ...(config.cors.allowedOrigins || [])],
             objectSrc: ["'none'"],
             upgradeInsecureRequests: []
