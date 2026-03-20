@@ -1459,6 +1459,7 @@
                                 <div class="action-buttons">
                                     ${stream.status === 'live' ? `<button class="btn btn-sm" style="background: var(--success); color: white;" onclick="openWatchStream('${stream.stream_key}', '${escapeHtml(stream.name)}')">Watch</button>` : ''}
                                     ${stream.status === 'live' ? `<button class="btn btn-sm" style="background: var(--warning); color: white;" onclick="openMonitorStream('${stream.id}', '${stream.stream_key}', '${escapeHtml(stream.name)}', '${stream.started_at || ''}')">Monitor</button>` : ''}
+                                    <button class="btn btn-sm" style="background: ${stream.is_recording_enabled ? 'var(--danger)' : 'var(--bg-tertiary)'}; color: white;" onclick="toggleRecording('${stream.id}', ${!stream.is_recording_enabled})">${stream.is_recording_enabled ? '⏺ REC' : '⏺ REC OFF'}</button>
                                     <button class="btn btn-secondary btn-sm" onclick="copyStreamKey('${stream.stream_key}')">Copy Key</button>
                                     <button class="btn btn-secondary btn-sm" onclick="openEditStream('${stream.id}', '${escapeHtml(stream.name)}', '${escapeHtml(stream.description || '')}')">Edit</button>
                                     ${stream.status === 'live' ? `<button class="btn btn-danger btn-sm" onclick="confirmStopStream('${stream.id}', '${escapeHtml(stream.name)}')">Stop</button>` : ''}
@@ -1861,6 +1862,20 @@
             const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
             const i = Math.floor(Math.log(bytes) / Math.log(k));
             return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        // Toggle Recording
+        async function toggleRecording(streamId, enable) {
+            try {
+                await api('/streams/' + streamId, {
+                    method: 'PUT',
+                    body: JSON.stringify({ is_recording_enabled: enable })
+                });
+                notify.success(enable ? 'Recording enabled' : 'Recording disabled');
+                loadAllStreams();
+            } catch (error) {
+                notify.error('Failed to toggle recording');
+            }
         }
 
         // Utils
