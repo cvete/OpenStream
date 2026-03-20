@@ -149,8 +149,8 @@ function parseTokenFromUri(uri) {
         }
 
         // Extract stream key from path
-        // Path format: /live/{stream-key}/index.m3u8
-        const pathMatch = url.pathname.match(/^\/(?:live|vod)\/([^\/]+)/);
+        // Path formats: /live/{stream-key}.m3u8 or /live/{stream-key}/index.m3u8 or /live/{stream-key}-123.ts
+        const pathMatch = url.pathname.match(/^\/(?:live|vod)\/([a-zA-Z0-9]+)/);
         const streamKey = pathMatch ? pathMatch[1] : null;
 
         return {
