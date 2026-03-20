@@ -29,16 +29,27 @@ async function startRestream(streamId, streamKey, sourceUrl) {
 
     logger.info(`Starting restream: ${sourceUrl} -> ${srsUrl}`);
 
+    // Detect source type to use appropriate FFmpeg flags
+    const isHls = /\.m3u8/i.test(sourceUrl);
+
     const ffmpegArgs = [
         '-hide_banner',
-        '-loglevel', 'warning',
-        '-reconnect', '1',
-        '-reconnect_streamed', '1',
-        '-reconnect_delay_max', '30',
-        '-rw_timeout', '10000000',
+        '-loglevel', 'info',
+        ...(isHls ? [
+            // HLS-specific: rw_timeout for segment downloads, live mode for live HLS
+            '-rw_timeout', '15000000',
+            '-multiple_requests', '1',
+        ] : [
+            // HTTP/RTMP: reconnect on transport-level failures
+            '-reconnect', '1',
+            '-reconnect_streamed', '1',
+            '-reconnect_delay_max', '30',
+            '-rw_timeout', '10000000',
+        ]),
         '-i', sourceUrl,
         '-c', 'copy',
         '-f', 'flv',
+        '-flvflags', 'no_duration_filesize',
         srsUrl
     ];
 
@@ -70,7 +81,12 @@ async function startRestream(streamId, streamKey, sourceUrl) {
         const line = data.toString().trim();
         if (line) {
             stderrBuffer = line; // Keep last line for error reporting
-            logger.debug(`FFmpeg [${streamKey}]: ${line}`);
+            // Log errors/warnings at info level, progress at debug
+            if (/error|fail|refused|denied|timeout|broken/i.test(line)) {
+                logger.warn(`FFmpeg [${streamKey}]: ${line}`);
+            } else {
+                logger.info(`FFmpeg [${streamKey}]: ${line}`);
+            }
         }
     });
 

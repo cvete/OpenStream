@@ -21,8 +21,9 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY package*.json ./
 COPY src/ ./src/
 
-# Create log directory and set ownership
-RUN mkdir -p /app/logs && chown -R nodejs:nodejs /app
+# Create log directory and media directory, set ownership
+RUN mkdir -p /app/logs /media/live /media/vod && \
+    chown -R nodejs:nodejs /app /media
 
 # Switch to non-root user
 USER nodejs

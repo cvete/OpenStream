@@ -24,7 +24,7 @@ function buildFfmpegArgs(streamKey, profile) {
 
     return [
         '-hide_banner',
-        '-loglevel', 'warning',
+        '-loglevel', 'info',
         '-i', inputUrl,
         '-c:v', profile.video_codec || 'libx264',
         '-b:v', `${profile.video_bitrate}k`,
@@ -117,7 +117,11 @@ function spawnProfileProcess(streamId, streamKey, profile, session) {
         const line = data.toString().trim();
         if (line) {
             stderrBuffer = line;
-            logger.debug(`FFmpeg transcode [${streamKey}_${profile.name}]: ${line}`);
+            if (/error|fail|refused|denied|timeout|broken/i.test(line)) {
+                logger.warn(`FFmpeg transcode [${streamKey}_${profile.name}]: ${line}`);
+            } else {
+                logger.info(`FFmpeg transcode [${streamKey}_${profile.name}]: ${line}`);
+            }
         }
     });
 
