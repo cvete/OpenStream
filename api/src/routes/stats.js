@@ -327,4 +327,34 @@ router.post('/record', async (req, res) => {
     }
 });
 
+/**
+ * GET /api/stats/srs/streams
+ * Get live stream details from SRS (bitrate, resolution, codec, etc.)
+ */
+router.get('/srs/streams', verifyToken, async (req, res) => {
+    try {
+        const srsResponse = await axios.get(`${config.srs.apiUrl}/api/v1/streams/`, {
+            timeout: 5000
+        });
+
+        const streams = (srsResponse.data.streams || []).map(s => ({
+            name: s.name,
+            app: s.app,
+            clients: s.clients,
+            live_ms: s.live_ms,
+            send_bytes: s.send_bytes,
+            recv_bytes: s.recv_bytes,
+            kbps: s.kbps,
+            publish: s.publish,
+            video: s.video,
+            audio: s.audio
+        }));
+
+        res.json({ streams });
+    } catch (error) {
+        logger.debug('Could not fetch SRS streams:', error.message);
+        res.json({ streams: [] });
+    }
+});
+
 module.exports = router;

@@ -1214,7 +1214,7 @@
                         <div class="value" id="monitor-resolution" style="font-size: 1.2rem;">--</div>
                     </div>
                     <div class="stat-card" style="padding: 12px;">
-                        <div class="label" style="font-size: 0.75rem;">FPS</div>
+                        <div class="label" style="font-size: 0.75rem;">Codec</div>
                         <div class="value" id="monitor-fps" style="font-size: 1.2rem;">--</div>
                     </div>
                 </div>
@@ -1806,36 +1806,38 @@
 
         async function updateMonitorData(streamId, streamKey, startedAt) {
             try {
-                // Fetch stream stats and SRS data in parallel
+                // Fetch stream stats and SRS stream data in parallel
                 const [statsData, srsData] = await Promise.all([
                     api('/streams/' + streamId + '/stats?period=1h'),
-                    api('/stats/server')
+                    api('/stats/srs/streams')
                 ]);
 
-                // Viewers
+                // Find this stream in SRS data
+                const srsStream = (srsData.streams || []).find(s => s.name === streamKey);
+
+                // Status & Viewers
                 document.getElementById('monitor-status').innerHTML = '<span style="color: var(--success);">LIVE</span>';
-                document.getElementById('monitor-viewers').textContent = statsData.current_viewers || 0;
+                document.getElementById('monitor-viewers').textContent = srsStream ? srsStream.clients : (statsData.current_viewers || 0);
                 document.getElementById('monitor-peak').textContent = statsData.peak_viewers || 0;
 
-                // Get stream info from SRS
-                const srs = srsData.srs?.data;
-                if (srs) {
-                    const bwIn = srs.self?.srs_recv_bytes || srs.system?.net_recv_bytes || 0;
-                    const bwOut = srs.self?.srs_send_bytes || srs.system?.net_send_bytes || 0;
-                    document.getElementById('monitor-bw-in').textContent = formatBytes(bwIn);
-                    document.getElementById('monitor-bw-out').textContent = formatBytes(bwOut);
-                }
+                // SRS real-time data
+                if (srsStream) {
+                    document.getElementById('monitor-bitrate').textContent = srsStream.kbps?.recv_30s || '--';
+                    document.getElementById('monitor-bw-in').textContent = formatBytes(srsStream.recv_bytes || 0);
+                    document.getElementById('monitor-bw-out').textContent = formatBytes(srsStream.send_bytes || 0);
 
-                // Get latest stats from history
-                if (statsData.history && statsData.history.length > 0) {
-                    const latest = statsData.history[statsData.history.length - 1];
-                    document.getElementById('monitor-bitrate').textContent = latest.bitrate ? Math.round(latest.bitrate) : '--';
-                    document.getElementById('monitor-resolution').textContent = (latest.width && latest.height) ? latest.width + 'x' + latest.height : '--';
-                    document.getElementById('monitor-fps').textContent = latest.fps ? parseFloat(latest.fps).toFixed(1) : '--';
+                    if (srsStream.video) {
+                        document.getElementById('monitor-resolution').textContent =
+                            srsStream.video.width + 'x' + srsStream.video.height;
+                        document.getElementById('monitor-fps').textContent =
+                            srsStream.video.codec + ' ' + srsStream.video.profile;
+                    }
                 } else {
                     document.getElementById('monitor-bitrate').textContent = '--';
                     document.getElementById('monitor-resolution').textContent = '--';
                     document.getElementById('monitor-fps').textContent = '--';
+                    document.getElementById('monitor-bw-in').textContent = '--';
+                    document.getElementById('monitor-bw-out').textContent = '--';
                 }
 
                 // Uptime
